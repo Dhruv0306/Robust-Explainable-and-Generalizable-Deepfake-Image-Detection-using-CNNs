@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📚 Documentation
+    url: https://github.com/your-org/Robust-Explainable-and-Generalizable-Deepfake-Image-Detection-using-CNNs/blob/main/README.md
+    about: Check the README for project overview and research framework
+  - name: 🤝 Contributing Guidelines
+    url: https://github.com/your-org/Robust-Explainable-and-Generalizable-Deepfake-Image-Detection-using-CNNs/blob/main/CONTRIBUTING.md
+    about: Learn how to contribute to this research project
+  - name: 💬 Discussions
+    url: https://github.com/your-org/Robust-Explainable-and-Generalizable-Deepfake-Image-Detection-using-CNNs/discussions
+    about: Ask questions and discuss ideas with the team
+  - name: 📧 Contact Team
+    url: mailto:your-email@example.com
+    about: Contact the research team directly for private matters

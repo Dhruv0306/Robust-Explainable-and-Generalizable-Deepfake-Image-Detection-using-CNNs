@@ -1,0 +1,567 @@
+# =============================================================================
+# .gitignore for Deepfake Detection Research Project
+# Robust, Explainable, and Generalizable Deepfake Image Detection using CNNs
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Python
+# -----------------------------------------------------------------------------
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+.pybuilder/
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# poetry
+poetry.lock
+
+# pdm
+.pdm.toml
+
+# PEP 582
+__pypackages__/
+
+# Celery stuff
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+.env
+.env.local
+.env.*.local
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Keep example environment files
+!.env.example
+!.env.template
+!env.example
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# Cython debug symbols
+cython_debug/
+
+# -----------------------------------------------------------------------------
+# Machine Learning & Deep Learning
+# -----------------------------------------------------------------------------
+# Model checkpoints and weights (exclude from version control - use DVC or similar)
+checkpoints/
+*.pth
+*.pt
+*.ckpt
+*.h5
+*.hdf5
+*.pb
+*.onnx
+*.tflite
+*.keras
+*.pkl
+*.pickle
+*.joblib
+
+# Keep example/template checkpoint files if needed
+!checkpoints/.gitkeep
+!checkpoints/README.md
+
+# TensorBoard logs
+runs/
+logs/
+tensorboard/
+tb_logs/
+lightning_logs/
+
+# Weights & Biases
+wandb/
+
+# MLflow
+mlruns/
+mlartifacts/
+
+# DVC
+.dvc/
+*.dvc
+
+# -----------------------------------------------------------------------------
+# Datasets (CRITICAL - Do not commit large datasets)
+# -----------------------------------------------------------------------------
+# Raw and processed data directories
+data/raw/*
+data/processed/*
+data/interim/*
+data/external/*
+data/cache/*
+data/downloads/*
+
+# Keep data directory structure and documentation
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/interim/.gitkeep
+!data/external/.gitkeep
+!data/raw/README.md
+!data/processed/README.md
+!data/README.md
+
+# Specific dataset files
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.jpg
+*.jpeg
+*.png
+*.bmp
+*.tiff
+*.gif
+*.webp
+*.npz
+*.npy
+*.h5
+*.hdf5
+*.parquet
+*.feather
+*.arrow
+
+# Keep sample/example images if needed
+!assets/**/*.png
+!assets/**/*.jpg
+!docs/**/*.png
+!docs/**/*.jpg
+
+# Dataset metadata that should not be committed
+data_splits/
+*.csv.gz
+*.json.gz
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+
+# -----------------------------------------------------------------------------
+# Experimental Results & Outputs
+# -----------------------------------------------------------------------------
+# Results directories (keep structure, ignore contents)
+results/*
+outputs/*
+experiments/*
+artifacts/*
+
+# Keep results structure and documentation
+!results/.gitkeep
+!results/README.md
+!results/*/README.md
+!outputs/.gitkeep
+!experiments/.gitkeep
+
+# Figures and plots (generated outputs)
+figures/generated/*
+plots/generated/*
+visualizations/generated/*
+
+# Keep structure
+!figures/.gitkeep
+!plots/.gitkeep
+!visualizations/.gitkeep
+
+# Grad-CAM outputs and saliency maps
+gradcam_outputs/
+saliency_maps/
+attention_maps/
+explanation_outputs/
+
+# Evaluation outputs
+evaluation_results/
+metrics_cache/
+predictions/
+*.csv
+*.json
+!configs/**/*.json
+!configs/**/*.csv
+
+# Keep important result summaries (uncomment if needed)
+# !results/summary.csv
+# !results/final_metrics.json
+
+# -----------------------------------------------------------------------------
+# AI Coding Tools & IDE Caches
+# -----------------------------------------------------------------------------
+# Claude Code
+.claude/
+.claude-code/
+claude_cache/
+claude-cache/
+
+# GitHub Copilot
+.copilot/
+.github-copilot/
+
+# Cursor IDE
+.cursor/
+cursor-cache/
+
+# Codeium
+.codeium/
+
+# Tabnine
+.tabnine/
+
+# Aider
+.aider*
+
+# General AI tool caches
+ai-cache/
+.ai-cache/
+llm-cache/
+.llm-cache/
+
+# -----------------------------------------------------------------------------
+# IDEs and Editors
+# -----------------------------------------------------------------------------
+# VS Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
+.history/
+*.code-workspace
+
+# PyCharm / IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+*~
+tags
+.tags
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# Spyder
+.spyproject/
+
+# -----------------------------------------------------------------------------
+# Operating System Files
+# -----------------------------------------------------------------------------
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+.directory
+.Trash-*
+.nfs*
+
+# -----------------------------------------------------------------------------
+# Temporary Files and Caches
+# -----------------------------------------------------------------------------
+# General temporary files
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+*~
+.~*
+
+# Cache directories
+cache/
+.cache/
+tmp/
+temp/
+__cache__/
+
+# -----------------------------------------------------------------------------
+# Research-Specific
+# -----------------------------------------------------------------------------
+# Scratch notebooks and experiments
+scratch/
+sandbox/
+temp_notebooks/
+draft_notebooks/
+*.draft.ipynb
+
+# Personal notes (team members' private notes)
+notes/personal/
+TODO.personal.md
+NOTES.personal.md
+
+# Keep shared notes
+!notes/README.md
+!TODO.md
+!NOTES.md
+
+# Profiling and benchmarking outputs
+*.prof
+*.lprof
+*.prof.txt
+profile_results/
+benchmark_results/
+
+# -----------------------------------------------------------------------------
+# Security & Credentials
+# -----------------------------------------------------------------------------
+# API keys and secrets
+.env.secret
+.env.production
+secrets/
+credentials/
+*.key
+*.pem
+*.crt
+*.cer
+*.p12
+*.pfx
+api_keys.txt
+secrets.json
+credentials.json
+
+# SSH keys
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
+
+# -----------------------------------------------------------------------------
+# Documentation Build Outputs
+# -----------------------------------------------------------------------------
+# LaTeX
+*.aux
+*.lof
+*.log
+*.lot
+*.fls
+*.out
+*.toc
+*.fmt
+*.fot
+*.cb
+*.cb2
+.*.lb
+*.bbl
+*.bcf
+*.blg
+*-blx.aux
+*-blx.bib
+*.run.xml
+*.fdb_latexmk
+*.synctex
+*.synctex(busy)
+*.synctex.gz
+*.synctex.gz(busy)
+*.pdfsync
+
+# Keep final reports
+!reports/*.pdf
+!reports/final/*.pdf
+
+# -----------------------------------------------------------------------------
+# Miscellaneous
+# -----------------------------------------------------------------------------
+# Backup files
+*.backup
+*.old
+*_backup
+*_old
+
+# Lock files
+*.lock
+!poetry.lock
+!Pipfile.lock
+
+# Compressed files (unless explicitly needed)
+# *.zip
+# *.tar.gz
+# *.rar
+
+# Large binary files
+*.bin
+*.dat
+
+# Test output
+test_output/
+test_results/
+
+# -----------------------------------------------------------------------------
+# Project-Specific Exclusions
+# -----------------------------------------------------------------------------
+# Add any project-specific patterns below
+
+# Face detection/alignment intermediate outputs
+aligned_faces/
+detected_faces/
+face_crops/
+
+# Video frame extraction
+frames/
+extracted_frames/
+
+# Intermediate transformation outputs
+transformed_images/
+augmented_data/
+
+# =============================================================================
+# End of .gitignore
+# =============================================================================

@@ -1,0 +1,75 @@
+# =============================================================================
+# Git Commit Message Template
+# Robust, Explainable, and Generalizable Deepfake Image Detection using CNNs
+# =============================================================================
+#
+# Format:
+#   <type>(<scope>): <subject>
+#
+#   <body>
+#
+#   <footer>
+#
+# -----------------------------------------------------------------------------
+# TYPE must be one of:
+#
+#   feat       — New feature or functionality
+#   fix        — Bug fix
+#   data       — Dataset processing, splits, or data pipeline changes
+#   model      — Model architecture, training, or checkpoint changes
+#   experiment — Experiment configuration, execution, or results
+#   eval       — Evaluation metrics, scripts, or analysis
+#   viz        — Visualizations, Grad-CAM, plots, or figures
+#   docs       — Documentation changes (README, reports, comments)
+#   refactor   — Code restructuring without changing behaviour
+#   test       — Adding or updating tests
+#   config     — Configuration files, hyperparameters, environment
+#   ci         — CI/CD pipeline changes
+#   chore      — Maintenance tasks (dependencies, .gitignore, cleanup)
+#   style      — Code formatting (no logic changes)
+#
+# -----------------------------------------------------------------------------
+# SCOPE (optional) should indicate the area affected:
+#
+#   baseline         — Approach 1: CNN baseline detector
+#   robustness       — Approach 2: image transformation experiments
+#   explainability   — Approach 3: Grad-CAM and XAI analysis
+#   generalizability — Approach 4: cross-manipulation/cross-dataset
+#   data             — Data loading, preprocessing, augmentation
+#   training         — Training loop, optimiser, scheduler
+#   evaluation       — Metrics computation, result aggregation
+#   notebook         — Jupyter notebooks
+#   report           — Research paper, white paper, reports
+#
+# -----------------------------------------------------------------------------
+# SUBJECT: imperative mood, no capitalisation, no period
+#   Good: "add JPEG compression to robustness pipeline"
+#   Bad:  "Added JPEG compression to robustness pipeline."
+#
+# BODY (optional): explain WHAT and WHY, not HOW
+#   - Wrap at 72 characters
+#   - Use blank line to separate from subject
+#
+# FOOTER (optional):
+#   - Reference issues:  Closes #123, Refs #456
+#   - Breaking changes:  BREAKING CHANGE: <description>
+#   - Co-authors:        Co-authored-by: Name <email>
+#
+# =============================================================================
+# Examples:
+#
+#   feat(baseline): add Xception model with ImageNet pretrained weights
+#
+#   model(robustness): add Gaussian blur at severity levels 1-5
+#
+#   eval(generalizability): compute cross-dataset gap on Celeb-DF v2
+#
+#   viz(explainability): generate Grad-CAM overlays for false negatives
+#
+#   data: add FaceForensics++ video-level train/val/test split
+#
+#   docs(report): add robustness experiment results to Phase B report
+#
+#   fix(training): resolve learning rate scheduler reset on resume
+#
+# =============================================================================

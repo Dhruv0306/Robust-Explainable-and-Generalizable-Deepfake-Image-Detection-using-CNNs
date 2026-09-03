@@ -202,6 +202,7 @@ data/external/*
 data/cache/*
 data/downloads/*
 data/scripts/*
+data/datasets/*
 
 # Keep data directory structure and documentation
 !data/raw/.gitkeep

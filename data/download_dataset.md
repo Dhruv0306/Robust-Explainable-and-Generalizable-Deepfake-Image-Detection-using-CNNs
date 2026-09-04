@@ -74,12 +74,12 @@ python .\scripts\faceforensics_download_v4.py .\datasets\FaceForensics++\ -d Fac
 
 - For Ununtu/Mac:
 ```python
-python3 scripts/faceforensics_download_v4.py datasets/FaceForensics++ -d FaceSwap -c c23 -t videos -n 100 --server EU2
+python3 scripts/faceforensics_download_v4.py datasets/FaceForensics++ -d NeuralTextures -c c23 -t videos -n 100 --server EU2
 ```
 
 - For Windows:
 ```python
-python .\scripts\faceforensics_download_v4.py .\datasets\FaceForensics++\ -d FaceSwap -c c23 -t videos -n 100 --server EU2
+python .\scripts\faceforensics_download_v4.py .\datasets\FaceForensics++\ -d NeuralTextures -c c23 -t videos -n 100 --server EU2
 ```
 
 ---

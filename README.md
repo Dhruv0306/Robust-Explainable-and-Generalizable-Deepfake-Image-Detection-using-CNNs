@@ -749,9 +749,9 @@ This project is released under the [MIT License](LICENSE).
 
 ## Project Status
 
-**Current Stage:** Proposal / Experimental Design
+**Current Stage:** Approach 1 Implementation Complete
 
-The current repository represents the research project setup and experimental framework. Model training, robustness experiments, Grad-CAM analysis, and generalization experiments will be added progressively as the project advances.
+Approach 1 baseline is implemented and ready to run. See `src/README.md` for usage and `APPROACH_01_SUMMARY.md` for implementation details. Robustness experiments (Approach 2), Grad-CAM analysis (Approach 3), and generalization experiments (Approach 4) will follow after baseline results are collected.
 
 ---
 

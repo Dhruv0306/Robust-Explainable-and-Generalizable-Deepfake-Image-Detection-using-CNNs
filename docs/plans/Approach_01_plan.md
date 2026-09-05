@@ -1,5 +1,7 @@
 # Approach 1 plan
 
+---
+
 ## 1. Objective
 
 Approach 1 establishes the primary baseline for binary deepfake image classification using CNNs trained on face-cropped frames extracted from FaceForensics++ videos.
@@ -11,20 +13,22 @@ The classifier will distinguish:
 
 The approach compares Xception, EfficientNet-B0, and ResNet50 under the same dataset construction, leakage-safe split, frame sampling, face-processing pipeline, augmentation policy, optimization strategy, evaluation protocol, and random seeds. Architecture-specific differences are limited to the CNN architecture, required input resolution, and corresponding ImageNet normalization.
 
+---
+
 ## 2. Dataset
 
 The primary dataset is FaceForensics++ using the C23 compression setting.
 
 The working subset contains 130 videos from each category:
 
-| Category | Label | Videos |
-|---|---:|---:|
-| Original | Real | 130 |
-| DeepFake | Fake | 130 |
-| Face2Face | Fake | 130 |
-| FaceSwap | Fake | 130 |
-| NeuralTextures | Fake | 130 |
-| **Total** | | **650** |
+| Category       | Label |  Videos |
+| -------------- | ----: | ------: |
+| Original       |  Real |     130 |
+| DeepFake       |  Fake |     130 |
+| Face2Face      |  Fake |     130 |
+| FaceSwap       |  Fake |     130 |
+| NeuralTextures |  Fake |     130 |
+| **Total**      |       | **650** |
 
 Manipulated filenames follow:
 
@@ -33,6 +37,8 @@ Manipulated filenames follow:
 where `targetID` identifies the original video on which the manipulation is applied and `sourceID` identifies the original video from which the source face is taken.
 
 Reverse relationships such as `008_990.mp4` and `990_008.mp4` are treated as the same unordered relationship during split construction.
+
+---
 
 ## 3. Leakage-safe splitting
 
@@ -58,6 +64,8 @@ The split must verify that:
 
 If an individual video later fails preprocessing, only that video is excluded.
 
+---
+
 ## 4. Frame extraction
 
 The source videos are treated as 30 FPS.
@@ -82,6 +90,8 @@ For each retained and successfully processed frame, the pipeline records:
 - Timestamp
 - Split
 
+---
+
 ## 5. Face processing
 
 Face cropping will be applied before CNN training. Dlib will not be used.
@@ -100,6 +110,8 @@ The exact detector, tracker, initialization frequency, bounding-box expansion, m
 If a selected frame does not produce a usable face crop, that frame is skipped and the failure is recorded. The entire video is not automatically discarded.
 
 A video must contain at least 20 successfully cropped frames. Videos with fewer than 20 usable frames are excluded individually and the exclusion reason is recorded.
+
+---
 
 ## 6. Processed dataset organization
 
@@ -126,6 +138,8 @@ frames/
 
 The exact directory naming convention will be kept consistent with the final dataset parser.
 
+---
+
 ## 7. Dataset manifests
 
 Both CSV and JSON manifests will be generated.
@@ -148,6 +162,8 @@ For Original videos, `source_id` is null and `target_id` may correspond to the o
 
 The manifest is the authoritative mapping between processed frames, source videos, labels, and splits. It also supports video-level aggregation during evaluation.
 
+---
+
 ## 8. Class balancing
 
 All successfully extracted training frames will be retained. Fake frames will not be downsampled.
@@ -162,23 +178,29 @@ with class weighting to account for class imbalance.
 
 Validation and test data will not be used when calculating training class weights.
 
+---
+
 ## 9. CNN architectures
 
 Three architectures will be evaluated:
 
-| Model | Pretraining | Input size | Output |
-|---|---|---:|---|
-| Xception | ImageNet | 299 × 299 | One logit |
-| EfficientNet-B0 | ImageNet | 224 × 224 | One logit |
-| ResNet50 | ImageNet | 224 × 224 | One logit |
+| Model           | Pretraining | Input size | Output    |
+| --------------- | ----------- | ---------: | --------- |
+| Xception        | ImageNet    |  299 × 299 | One logit |
+| EfficientNet-B0 | ImageNet    |  224 × 224 | One logit |
+| ResNet50        | ImageNet    |  224 × 224 | One logit |
 
 FaceForensics-specific pretrained Xception weights will not be used for the primary comparison because this would introduce architecture-specific pretraining advantages.
+
+---
 
 ## 10. Image preprocessing
 
 Face crops are resized to the required input resolution for each architecture and normalized according to the corresponding ImageNet preprocessing.
 
 Apart from required input size and normalization, preprocessing remains consistent across models.
+
+---
 
 ## 11. Training augmentation
 
@@ -194,6 +216,8 @@ The following robustness transformations are excluded from Approach 1 training a
 - Brightness changes
 
 These transformations are reserved for later robustness experiments.
+
+---
 
 ## 12. Optimization and training
 
@@ -216,6 +240,8 @@ Training limits:
 
 Batch size will be selected safely according to available hardware and remain configurable.
 
+---
+
 ## 13. Hardware and platform support
 
 The implementation must support CPU and GPU execution and remain portable across:
@@ -225,6 +251,8 @@ The implementation must support CPU and GPU execution and remain portable across
 - macOS
 
 Paths will use platform-independent path handling. Device selection and hardware-dependent settings such as batch size will not be hard-coded for one machine.
+
+---
 
 ## 14. Checkpoint selection
 
@@ -241,6 +269,8 @@ The following validation metrics are also recorded:
 F1 and ROC-AUC are secondary model-selection diagnostics. Precision and recall are retained as diagnostics but neither is used alone to select the checkpoint.
 
 The selected checkpoint is evaluated on the test set.
+
+---
 
 ## 15. Reproducibility
 
@@ -268,6 +298,8 @@ Architecture, input resolution, and corresponding normalization are the intended
 
 Every run records its seed and configuration.
 
+---
+
 ## 16. Frame-level inference
 
 Each processed face crop produces one logit.
@@ -277,6 +309,8 @@ The sigmoid function converts the logit into a fake probability:
 `p(fake) = sigmoid(logit)`
 
 Frame-level predictions are retained for supplementary analysis and video-level aggregation.
+
+---
 
 ## 17. Video-level aggregation
 
@@ -299,6 +333,8 @@ For mode aggregation, each frame probability is thresholded at 0.5:
 
 The mode of these binary predictions becomes the video-level prediction.
 
+---
+
 ## 18. Evaluation metrics
 
 Primary evaluation is performed at the video level.
@@ -316,6 +352,8 @@ Frame-level metrics may be reported as supplementary diagnostics, but they do no
 
 ROC-AUC uses the continuous video-level fake probability rather than the thresholded class label.
 
+---
+
 ## 19. Per-manipulation evaluation
 
 The classifier remains binary Real/Fake, but fake-video performance is also reported separately for:
@@ -326,6 +364,8 @@ The classifier remains binary Real/Fake, but fake-video performance is also repo
 - NeuralTextures
 
 Original videos remain the Real class.
+
+---
 
 ## 20. Experiment matrix
 
@@ -347,36 +387,72 @@ Seeds:
 
 Each run uses the same processed dataset and split configuration.
 
+---
+
 ## 21. Experiment outputs
 
-Expected structure:
+All Approach 1 run outputs will be stored under `data/output/`.
+
+Each model run will create its own directory using the format:
 
 ```text
-experiments/
-└── approach_01/
-    ├── config/
-    ├── logs/
-    ├── checkpoints/
-    ├── predictions/
-    ├── metrics/
-    └── plots/
+<model_name>_<pc_name>_<date_time_of_start>
 ```
+
+where:
+
+* `<model_name>` identifies the CNN architecture.
+* `<pc_name>` identifies the computer or execution environment used for the run.
+* `<date_time_of_start>` records the date and time at which the run started.
+
+For example:
+
+```text
+data/output/
+├── Xception_PC1_2026-09-05_16-14-00/
+├── EfficientNet-B0_PC1_2026-09-05_18-30-00/
+└── ResNet50_PC1_2026-09-06_09-15-00/
+```
+
+The run directory will contain all outputs associated with that specific training run. It must also contain a `.txt` or `.json` configuration file containing all configuration parameters used for the run.
+
+The configuration record must contain all information required to reproduce and identify the run, including the model, seed, dataset and split configuration, preprocessing, augmentation, optimizer, scheduler, training settings, device, batch size, and relevant runtime settings.
+
+The final selected checkpoint must be saved in both locations:
+
+* The corresponding model run directory under `data/output/`.
+* The corresponding model run directory under `data/checkpoints/`.
+
+Checkpoint storage will use the same run-directory naming convention:
+
+```text
+data/checkpoints/
+├── Xception_PC1_2026-09-05_16-14-00/
+├── EfficientNet-B0_PC1_2026-09-05_18-30-00/
+└── ResNet50_PC1_2026-09-06_09-15-00/
+```
+
+The run directory name must be identical in `data/output/` and `data/checkpoints/` so that the two locations can be directly associated with the same training run.
+
+The final model outputs and required experiment artifacts will be pushed to the project's GitHub repository after the run is completed and the outputs have been verified, subject to repository storage and version-control constraints.
 
 Expected outputs include:
 
-- Training and validation loss histories
-- Training and validation metrics
-- Best epoch
-- Selected checkpoint
-- Test predictions
-- Frame-level predictions
-- Video-level predictions
-- Confusion matrices
-- ROC curves
-- Metric summaries
-- Per-manipulation results
-- Run configuration
-- Random seed
+* Training and validation loss histories
+* Training and validation metrics
+* Best epoch
+* Selected checkpoint
+* Test predictions
+* Frame-level predictions
+* Video-level predictions
+* Confusion matrices
+* ROC curves
+* Metric summaries
+* Per-manipulation results
+* Run configuration
+* Random seed
+
+---
 
 ## 22. Implementation structure
 
@@ -412,6 +488,8 @@ src/
 ```
 
 This structure can be adapted to the existing repository without changing the experimental protocol.
+
+---
 
 ## 23. End-to-end pipeline
 
@@ -461,57 +539,67 @@ Compute video-level metrics
 Report per-manipulation performance
 ```
 
+---
+
 ## 24. Fixed configuration
 
-| Component | Configuration |
-|---|---|
-| Task | Binary Real vs Fake |
-| Dataset | FaceForensics++ |
-| Compression | C23 |
-| Categories | Original, DeepFake, Face2Face, FaceSwap, NeuralTextures |
-| Videos/category | 130 |
-| Total videos | 650 |
-| Split principle | Source/target relationship graph |
-| Reverse pairs | Canonicalized as unordered relationships |
-| Planned split | 100 / 20 / 10 groups, subject to graph verification |
-| Frame rate assumption | 30 FPS |
-| Frame sampling | Every 4th frame |
-| Effective sampling rate | 7.5 FPS |
-| Face processing | Face cropping + tracking |
-| Face detector | To be finalized |
-| Tracker | To be finalized |
-| Failed detection | Skip frame + record failure |
-| Minimum usable frames | 20 per video |
-| Training frames | All successfully extracted frames |
-| Class balancing | Class-weighted loss |
-| Class weights | Training frames only |
-| Loss | BCEWithLogitsLoss |
-| Models | Xception, EfficientNet-B0, ResNet50 |
-| Pretraining | ImageNet |
-| Xception input | 299 × 299 |
-| EfficientNet-B0 input | 224 × 224 |
-| ResNet50 input | 224 × 224 |
-| Training augmentation | Random horizontal flip + controlled Gaussian blur |
-| Robustness transformations in Approach 1 | None |
-| Optimizer | AdamW |
-| Learning rate | 1e-4 |
-| Weight decay | 1e-4 |
-| Scheduler | ReduceLROnPlateau |
-| Maximum epochs | 30 |
-| Early stopping patience | 5 |
-| Primary checkpoint criterion | Lowest validation loss |
-| Secondary diagnostics | F1, ROC-AUC, precision, recall |
-| Seeds | 42, 123, 2024 |
-| Runs | 9 |
-| Primary evaluation unit | Video |
-| Aggregation | Mean, median, binary mode |
-| Primary aggregation | Mean probability |
-| Metrics | Accuracy, Precision, Recall, F1, ROC-AUC, confusion matrix |
-| Per-manipulation analysis | Yes |
-| Manifest formats | CSV + JSON |
-| Hardware | CPU + GPU |
-| Platforms | Windows + Ubuntu + macOS |
-| Minimum video-level criterion | 20 usable cropped frames |
+| Component                                | Configuration                                              |
+| ---------------------------------------- | ---------------------------------------------------------- |
+| Task                                     | Binary Real vs Fake                                        |
+| Dataset                                  | FaceForensics++                                            |
+| Compression                              | C23                                                        |
+| Categories                               | Original, DeepFake, Face2Face, FaceSwap, NeuralTextures    |
+| Videos/category                          | 130                                                        |
+| Total videos                             | 650                                                        |
+| Split principle                          | Source/target relationship graph                           |
+| Reverse pairs                            | Canonicalized as unordered relationships                   |
+| Planned split                            | 100 / 20 / 10 groups, subject to graph verification        |
+| Frame rate assumption                    | 30 FPS                                                     |
+| Frame sampling                           | Every 4th frame                                            |
+| Effective sampling rate                  | 7.5 FPS                                                    |
+| Face processing                          | Face cropping + tracking                                   |
+| Face detector                            | To be finalized                                            |
+| Tracker                                  | To be finalized                                            |
+| Failed detection                         | Skip frame + record failure                                |
+| Minimum usable frames                    | 20 per video                                               |
+| Training frames                          | All successfully extracted frames                          |
+| Class balancing                          | Class-weighted loss                                        |
+| Class weights                            | Training frames only                                       |
+| Loss                                     | BCEWithLogitsLoss                                          |
+| Models                                   | Xception, EfficientNet-B0, ResNet50                        |
+| Pretraining                              | ImageNet                                                   |
+| Xception input                           | 299 × 299                                                  |
+| EfficientNet-B0 input                    | 224 × 224                                                  |
+| ResNet50 input                           | 224 × 224                                                  |
+| Training augmentation                    | Random horizontal flip + controlled Gaussian blur          |
+| Robustness transformations in Approach 1 | None                                                       |
+| Optimizer                                | AdamW                                                      |
+| Learning rate                            | 1e-4                                                       |
+| Weight decay                             | 1e-4                                                       |
+| Scheduler                                | ReduceLROnPlateau                                          |
+| Maximum epochs                           | 30                                                         |
+| Early stopping patience                  | 5                                                          |
+| Primary checkpoint criterion             | Lowest validation loss                                     |
+| Secondary diagnostics                    | F1, ROC-AUC, precision, recall                             |
+| Seeds                                    | 42, 123, 2024                                              |
+| Runs                                     | 9                                                          |
+| Primary evaluation unit                  | Video                                                      |
+| Aggregation                              | Mean, median, binary mode                                  |
+| Primary aggregation                      | Mean probability                                           |
+| Metrics                                  | Accuracy, Precision, Recall, F1, ROC-AUC, confusion matrix |
+| Per-manipulation analysis                | Yes                                                        |
+| Manifest formats                         | CSV + JSON                                                 |
+| Hardware                                 | CPU + GPU                                                  |
+| Platforms                                | Windows + Ubuntu + macOS                                   |
+| Minimum video-level criterion            | 20 usable cropped frames                                   |
+| Output root                              | `data/output/`                                             |
+| Checkpoint root                          | `data/checkpoints/`                                        |
+| Run directory                            | `<model_name>_<pc_name>_<date_time_of_start>`              |
+| Run configuration                        | `.txt` or `.json` inside the output run directory          |
+| Final checkpoint                         | Saved in both output and checkpoint run directories        |
+| GitHub                                   | Final model outputs pushed after verification              |
+
+---
 
 ## 25. Items to finalize before implementation
 
@@ -528,3 +616,5 @@ The overall Approach 1 protocol is fixed. The following implementation details r
 9. Exact horizontal-flip probability.
 10. Automatic batch-size policy.
 11. Exact configuration-file format and integration with the existing repository.
+
+---

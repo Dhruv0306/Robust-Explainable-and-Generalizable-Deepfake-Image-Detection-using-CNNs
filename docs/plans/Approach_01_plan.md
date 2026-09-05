@@ -96,18 +96,33 @@ For each retained and successfully processed frame, the pipeline records:
 
 Face cropping will be applied before CNN training. Dlib will not be used.
 
-The pipeline will include:
+The face-processing pipeline is:
 
-1. Face detection.
-2. Face tracking across selected frames.
-3. Bounding-box processing.
-4. Face crop generation.
-5. Crop validation.
-6. Recording of detection and tracking failures.
+```text
+Video → frame sampling → RetinaFace detection → bounding-box validation → IoU-based face association → bounding-box expansion → crop → save frame
+```
 
-The exact detector, tracker, initialization frequency, bounding-box expansion, multiple-face handling, and failure policy will be finalized before implementation.
+For the first usable frame:
 
-If a selected frame does not produce a usable face crop, that frame is skipped and the failure is recorded. The entire video is not automatically discarded.
+```text
+valid detections → largest valid face → initialize
+```
+
+For subsequent frames:
+
+```text
+valid detections → IoU association with previous face → selected face → crop
+```
+
+For failure:
+
+```text
+association failure → recovery attempt → re-detection → if unsuccessful, skip + log
+```
+
+RetinaFace will run on every selected frame. Since every fourth frame is retained from the 30 FPS source videos, the effective processing rate is 7.5 FPS.
+
+If a selected frame does not produce a usable face crop, that frame is skipped and the failure is recorded. A failed frame does not cause the entire video to be excluded.
 
 A video must contain at least 20 successfully cropped frames. Videos with fewer than 20 usable frames are excluded individually and the exclusion reason is recorded.
 
@@ -190,7 +205,7 @@ Three architectures will be evaluated:
 | EfficientNet-B0 | ImageNet    |  224 × 224 | One logit |
 | ResNet50        | ImageNet    |  224 × 224 | One logit |
 
-FaceForensics-specific pretrained Xception weights will not be used for the primary comparison because this would introduce architecture-specific pretraining advantages.
+All three architectures will use ImageNet-pretrained weights from `timm`. Xception will use the `timm` implementation. FaceForensics++-specific pretrained Xception weights will not be used for the primary comparison because this would introduce architecture-specific pretraining advantages.
 
 ---
 
@@ -204,10 +219,12 @@ Apart from required input size and normalization, preprocessing remains consiste
 
 ## 11. Training augmentation
 
-Approach 1 uses:
+Training augmentation:
 
-- Random horizontal flip
-- Controlled Gaussian blur
+- Random horizontal flip with probability `0.5`
+- Gaussian blur with probability `0.1`, kernel size `3` or `5`, sigma sampled from `0.1` to `2.0`
+
+The augmentation remains mild and does not overlap with the later robustness transformations.
 
 The following robustness transformations are excluded from Approach 1 training augmentation:
 
@@ -231,14 +248,36 @@ Scheduler:
 
 - ReduceLROnPlateau
 - Monitor: validation loss
+- Scheduler patience: `2` epochs
 
 Training limits:
 
 - Maximum epochs: 30
-- Early stopping patience: 5
+- Early stopping patience: 5 (independent from scheduler patience)
 - Primary checkpoint criterion: lowest validation loss
 
-Batch size will be selected safely according to available hardware and remain configurable.
+Mixed precision:
+
+- Automatic mixed precision (AMP) will be enabled when supported by the selected device. If AMP is unavailable or unsuitable, training will fall back to FP32.
+- AMP is treated as a runtime optimization rather than an experimental variable. Its enabled/disabled state will be recorded in the run configuration.
+
+Batch size:
+
+- Batch size will be determined automatically based on available hardware where possible, with a configuration override.
+- GPU execution should use a safe batch size based on available GPU memory. CPU execution should fall back to a conservative batch size.
+
+| Parameter               | Value                            |
+| ----------------------- | -------------------------------- |
+| Optimizer               | AdamW                            |
+| Learning rate           | `1e-4`                           |
+| Weight decay            | `1e-4`                           |
+| Scheduler               | ReduceLROnPlateau                |
+| Scheduler patience      | `2`                              |
+| Early stopping patience | `5`                              |
+| Maximum epochs          | `30`                             |
+| AMP                     | Enabled when supported           |
+| AMP fallback            | FP32                             |
+| Batch size              | Automatic, configurable override |
 
 ---
 
@@ -287,14 +326,23 @@ The following remain identical across architectures and seeds wherever applicabl
 - Dataset split
 - Video membership
 - Frame sampling
-- Face-processing configuration
+- Selected frame indices
+- Face detector (RetinaFace)
+- Face-selection policy
+- Bounding-box validation
+- Face-cropping policy
 - Labels
 - Training augmentation
+- Training/validation/test manifests
 - Validation data
 - Test data
 - Evaluation procedure
 
-Architecture, input resolution, and corresponding normalization are the intended model-specific differences.
+Architecture-specific differences are limited to:
+
+- CNN architecture
+- Input resolution
+- Model-specific normalization requirements
 
 Every run records its seed and configuration.
 
@@ -414,9 +462,29 @@ data/output/
 └── ResNet50_PC1_2026-09-06_09-15-00/
 ```
 
-The run directory will contain all outputs associated with that specific training run. It must also contain a `.txt` or `.json` configuration file containing all configuration parameters used for the run.
+The run directory will contain all outputs associated with that specific training run. It must also contain both:
+
+* a machine-readable `.json` configuration,
+* a human-readable `.txt` configuration summary.
+
+The JSON is the authoritative machine-readable configuration. The TXT is the human-readable summary.
 
 The configuration record must contain all information required to reproduce and identify the run, including the model, seed, dataset and split configuration, preprocessing, augmentation, optimizer, scheduler, training settings, device, batch size, and relevant runtime settings.
+
+Every run should record at least:
+
+```text
+device
+GPU name, if applicable
+CUDA availability
+AMP enabled/disabled
+batch size
+num_workers
+random seed
+model
+input resolution
+pretrained weight source
+```
 
 The final selected checkpoint must be saved in both locations:
 
@@ -558,8 +626,8 @@ Report per-manipulation performance
 | Frame sampling                           | Every 4th frame                                            |
 | Effective sampling rate                  | 7.5 FPS                                                    |
 | Face processing                          | Face cropping + tracking                                   |
-| Face detector                            | To be finalized                                            |
-| Tracker                                  | To be finalized                                            |
+| Face detector                            | RetinaFace                                                 |
+| Face association                         | IoU-based (no dedicated tracker)                           |
 | Failed detection                         | Skip frame + record failure                                |
 | Minimum usable frames                    | 20 per video                                               |
 | Training frames                          | All successfully extracted frames                          |
@@ -571,12 +639,12 @@ Report per-manipulation performance
 | Xception input                           | 299 × 299                                                  |
 | EfficientNet-B0 input                    | 224 × 224                                                  |
 | ResNet50 input                           | 224 × 224                                                  |
-| Training augmentation                    | Random horizontal flip + controlled Gaussian blur          |
+| Training augmentation                    | Horizontal flip (p=0.5) + Gaussian blur (p=0.1)           |
 | Robustness transformations in Approach 1 | None                                                       |
 | Optimizer                                | AdamW                                                      |
 | Learning rate                            | 1e-4                                                       |
 | Weight decay                             | 1e-4                                                       |
-| Scheduler                                | ReduceLROnPlateau                                          |
+| Scheduler                                | ReduceLROnPlateau (patience 2)                             |
 | Maximum epochs                           | 30                                                         |
 | Early stopping patience                  | 5                                                          |
 | Primary checkpoint criterion             | Lowest validation loss                                     |
@@ -591,30 +659,140 @@ Report per-manipulation performance
 | Manifest formats                         | CSV + JSON                                                 |
 | Hardware                                 | CPU + GPU                                                  |
 | Platforms                                | Windows + Ubuntu + macOS                                   |
+| AMP                                      | Enabled when supported, fallback FP32                      |
+| Batch size                               | Automatic, configurable override                           |
+| Xception source                          | `timm` with ImageNet weights                               |
 | Minimum video-level criterion            | 20 usable cropped frames                                   |
 | Output root                              | `data/output/`                                             |
 | Checkpoint root                          | `data/checkpoints/`                                        |
 | Run directory                            | `<model_name>_<pc_name>_<date_time_of_start>`              |
-| Run configuration                        | `.txt` or `.json` inside the output run directory          |
+| Run configuration                        | `.json` + `.txt` inside the output run directory           |
 | Final checkpoint                         | Saved in both output and checkpoint run directories        |
 | GitHub                                   | Final model outputs pushed after verification              |
 
 ---
 
-## 25. Items to finalize before implementation
+## 25. Finalized implementation decisions
 
-The overall Approach 1 protocol is fixed. The following implementation details remain to be finalized before the preprocessing pipeline is written:
+The overall Approach 1 protocol is fixed. The following implementation decisions have been finalized.
 
-1. Face detector.
-2. Face tracker.
-3. Detector initialization frequency.
-4. Bounding-box expansion policy.
-5. Handling of multiple faces.
-6. Tracker failure and re-detection policy.
-7. Face crop validation rules.
-8. Exact Gaussian blur probability and parameter range.
-9. Exact horizontal-flip probability.
-10. Automatic batch-size policy.
-11. Exact configuration-file format and integration with the existing repository.
+### 25.1 Face detector
+
+Face detector: **RetinaFace**.
+
+The exact PyTorch implementation and version will be pinned during implementation. The selected implementation must support both GPU and CPU execution.
+
+### 25.2 Face tracking
+
+Face tracking: **IoU-based association**.
+
+A dedicated tracker such as SORT or DeepSORT will not be used for the baseline. Face detection will be performed on every selected frame, and detections will be associated temporally using bounding-box IoU with the previously selected face.
+
+This avoids introducing an additional tracking model while providing temporal consistency across the sampled frames.
+
+### 25.3 Detection frequency
+
+RetinaFace will run on **every selected frame**. Since every fourth frame is retained from the 30 FPS source videos, the effective processing rate is 7.5 FPS.
+
+### 25.4 Multiple faces
+
+On the first usable frame, select the **largest valid face** to initialize the sequence.
+
+For subsequent frames, select the valid detection with the highest IoU with the previously selected face. The pipeline should not switch to another face solely because that face becomes larger.
+
+### 25.5 Bounding-box expansion
+
+Use a **fixed, configurable expansion margin** around the detected face bounding box.
+
+The exact expansion percentage will be finalized during implementation after inspecting representative FaceForensics++ frames and verifying the selected RetinaFace implementation. The value must be recorded in the run configuration.
+
+### 25.6 Detection/tracking failure
+
+If the current face cannot be associated reliably, perform a short recovery attempt followed by fresh face detection. If recovery remains unsuccessful, skip the frame and record the failure.
+
+A failed frame does not cause the entire video to be excluded.
+
+### 25.7 Face crop validation
+
+Reject a bounding box if:
+
+* any portion extends outside the image boundary,
+* the resulting crop is extremely small,
+* the bounding box is otherwise geometrically invalid.
+
+Rejected crops and their failure reasons must be logged. Invalid boxes are not silently clipped and accepted.
+
+### 25.8 Gaussian blur
+
+Gaussian blur augmentation:
+
+* probability: `0.1`
+* kernel size: `3` or `5`
+* sigma: sampled from `0.1` to `2.0`
+
+The augmentation remains mild and does not overlap with the later robustness transformations.
+
+### 25.9 Horizontal flip
+
+Random horizontal flip with probability `0.5`.
+
+### 25.10 Learning-rate scheduler
+
+`ReduceLROnPlateau` with scheduler patience of **2 epochs**.
+
+Early stopping remains at **5 epochs**.
+
+The scheduler and early-stopping patience values are independent.
+
+### 25.11 Automatic batch size
+
+Batch size will be determined automatically based on available hardware where possible, with a configuration override.
+
+GPU execution should use a safe batch size based on available GPU memory. CPU execution should fall back to a conservative batch size.
+
+### 25.12 Mixed precision
+
+Automatic mixed precision (AMP) will be enabled when supported by the selected device. If AMP is unavailable or unsuitable, training will fall back to FP32.
+
+AMP is treated as a runtime optimization rather than an experimental variable. Its enabled/disabled state will be recorded in the run configuration.
+
+### 25.13 Configuration format
+
+Each experiment run will store:
+
+* a machine-readable `.json` configuration,
+* a human-readable `.txt` configuration summary.
+
+Both files will be stored inside the corresponding `data/output/<run_directory>/`.
+
+The configuration must record all parameters required to reproduce the run, including dataset settings, split information, preprocessing, augmentation, model, optimizer, scheduler, seed, device, AMP status, and runtime parameters.
+
+### 25.14 Xception implementation
+
+Xception will be implemented using the **PyTorch Image Models (`timm`) implementation** with ImageNet-pretrained weights.
+
+The exact `timm` version will be pinned in the project environment.
+
+FaceForensics++-specific pretrained Xception weights will not be used.
+
+This keeps the three CNNs under the same PyTorch ecosystem:
+
+* `Xception → timm`
+* `EfficientNet-B0 → timm`
+* `ResNet50 → timm`
+
+with ImageNet initialization for all three.
+
+### 25.15 Parameters to finalize during implementation
+
+The following parameters are intentionally not fixed in the research protocol until the implementation is validated against representative FaceForensics++ C23 frames:
+
+* exact RetinaFace implementation and version,
+* IoU association threshold,
+* bounding-box expansion margin,
+* minimum valid crop dimensions,
+* recovery-gap parameters.
+
+Once selected, these values must be fixed and recorded in the run configuration for every experiment.
 
 ---

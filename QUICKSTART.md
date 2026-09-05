@@ -39,6 +39,10 @@ python src/data/inspect_dataset.py
 Process 650 videos and train all 9 models:
 
 ```bash
+# Windows
+run_experiment.bat
+
+# Linux/Mac or direct
 python src/run_experiment.py
 ```
 
@@ -49,6 +53,10 @@ This will take hours to days depending on hardware.
 If data is already processed:
 
 ```bash
+# Windows
+run_experiment.bat --skip-data
+
+# Linux/Mac or direct
 python src/run_experiment.py --skip-data
 ```
 
@@ -57,6 +65,10 @@ python src/run_experiment.py --skip-data
 Train one model with all seeds:
 
 ```bash
+# Windows
+run_experiment.bat --skip-data --model xception
+
+# Linux/Mac or direct
 python src/run_experiment.py --skip-data --model xception
 ```
 

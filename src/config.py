@@ -4,6 +4,10 @@ All hyperparameters, paths, and constants in one place.
 """
 from pathlib import Path
 import socket
+import warnings
+
+# Suppress CUDA capability warning for newer GPUs (RTX 5050, etc.)
+warnings.filterwarnings('ignore', category=UserWarning, message='.*CUDA capability.*')
 
 # === Paths ===
 PROJECT_ROOT = Path(__file__).parent.parent

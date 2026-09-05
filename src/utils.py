@@ -5,8 +5,12 @@ import random
 import numpy as np
 import torch
 import logging
+import warnings
 from pathlib import Path
 from typing import Optional
+
+# Suppress CUDA capability warning for newer GPUs (e.g., RTX 5050 sm_120)
+warnings.filterwarnings('ignore', category=UserWarning, message='.*CUDA capability.*')
 
 
 def set_seed(seed: int):

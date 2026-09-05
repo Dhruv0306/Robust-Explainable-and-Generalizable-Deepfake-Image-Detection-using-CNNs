@@ -41,7 +41,7 @@ python src/data/extract_frames.py
 ```
 
 ### `detect_and_crop_faces.py`
-Runs RetinaFace on every selected frame. Tracks faces across frames using IoU-based association. Selects the largest valid face on the first frame, then tracks via IoU (threshold 0.5). Expands bounding boxes by 30%, validates geometry, crops, and overwrites the original frame with the face crop.
+Runs MTCNN (facenet-pytorch) on every selected frame. Tracks faces across frames using IoU-based association. Selects the largest valid face on the first frame, then tracks via IoU (threshold 0.5). Expands bounding boxes by 30%, validates geometry, crops, and overwrites the original frame with the face crop.
 
 Skips frames where detection fails. Excludes videos with fewer than 20 usable frames.
 

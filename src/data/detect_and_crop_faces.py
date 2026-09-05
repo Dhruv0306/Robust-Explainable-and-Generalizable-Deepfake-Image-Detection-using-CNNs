@@ -1,5 +1,5 @@
 """
-Face detection and cropping using RetinaFace with IoU-based tracking.
+Face detection and cropping using MTCNN (facenet-pytorch) with IoU-based tracking.
 """
 from pathlib import Path
 import logging
@@ -13,10 +13,12 @@ sys.path.append(str(Path(__file__).parent.parent))
 from config import *
 
 try:
-    from retinaface import RetinaFace
+    from facenet_pytorch import MTCNN
+    import torch
 except ImportError:
-    logging.warning("retinaface-pytorch not installed. Install with: pip install retinaface-pytorch")
-    RetinaFace = None
+    logging.warning("facenet-pytorch not installed. Install with: pip install facenet-pytorch")
+    MTCNN = None
+    torch = None
 
 
 def compute_iou(box1: List[float], box2: List[float]) -> float:
@@ -76,6 +78,10 @@ def detect_and_crop_faces(frame_metadata: List[Dict]) -> List[Dict]:
     if not frame_metadata:
         return []
 
+    # Initialize MTCNN
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    mtcnn = MTCNN(keep_all=True, device=device)
+
     processed = []
     prev_bbox = None
 
@@ -90,24 +96,23 @@ def detect_and_crop_faces(frame_metadata: List[Dict]) -> List[Dict]:
             logging.warning(f"Failed to read {frame_path}")
             continue
 
-        # Detect faces
+        # Convert BGR to RGB for MTCNN
+        img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+        # Detect faces - returns boxes as [x1, y1, x2, y2], probs
         try:
-            detections = RetinaFace.detect_faces(img)
+            boxes, probs = mtcnn.detect(img_rgb)
         except Exception as e:
             logging.debug(f"Detection failed for {frame_path}: {e}")
-            detections = {}
+            boxes, probs = None, None
 
-        if not detections:
+        if boxes is None or len(boxes) == 0:
             # No face detected
             logging.debug(f"No face in {frame_path}")
             continue
 
-        # Extract bboxes
-        bboxes = []
-        for key in detections:
-            facial_area = detections[key]["facial_area"]
-            bbox = [facial_area[0], facial_area[1], facial_area[2], facial_area[3]]
-            bboxes.append(bbox)
+        # Convert boxes to list format for processing
+        bboxes = [[float(x) for x in box] for box in boxes]
 
         # Select face
         if prev_bbox is None:
@@ -189,8 +194,8 @@ if __name__ == "__main__":
 
     setup_logging()
 
-    if RetinaFace is None:
-        logging.error("RetinaFace not available. Install retinaface-pytorch.")
+    if MTCNN is None:
+        logging.error("facenet-pytorch not available. Install facenet-pytorch.")
         sys.exit(1)
 
     # Load frame extraction metadata

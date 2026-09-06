@@ -6,8 +6,8 @@ from pathlib import Path
 import socket
 import warnings
 
-# Suppress CUDA capability warning for newer GPUs (RTX 5050, etc.)
-warnings.filterwarnings('ignore', category=UserWarning, message='.*CUDA capability.*')
+# Suppress torch's noisy CUDA warning; get_device() reports the usable fallback clearly.
+warnings.filterwarnings('ignore', category=UserWarning, module=r'torch\.cuda\..*')
 
 # === Paths ===
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -52,7 +52,7 @@ IOU_THRESHOLD = 0.5  # IoU threshold for face association across frames
 # === Models ===
 MODELS = {
     "xception": {
-        "timm_name": "xception",
+        "timm_name": "legacy_xception",
         "input_size": 299,
         "pretrained": True,
     },

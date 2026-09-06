@@ -9,8 +9,8 @@ import warnings
 from pathlib import Path
 from typing import Optional
 
-# Suppress CUDA capability warning for newer GPUs (e.g., RTX 5050 sm_120)
-warnings.filterwarnings('ignore', category=UserWarning, message='.*CUDA capability.*')
+# Suppress torch's noisy CUDA warning; get_device() reports the usable fallback clearly.
+warnings.filterwarnings('ignore', category=UserWarning, module=r'torch\.cuda\..*')
 
 
 def _cuda_is_usable() -> bool:

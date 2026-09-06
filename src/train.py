@@ -3,7 +3,7 @@ Training loop: AdamW + ReduceLROnPlateau + early stopping + AMP + checkpointing.
 """
 import torch
 import torch.nn as nn
-from torch.cuda.amp import autocast, GradScaler
+from torch.amp import autocast, GradScaler
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from pathlib import Path
@@ -33,7 +33,7 @@ def train_epoch(model, dataloader, criterion, optimizer, device, scaler, use_amp
         optimizer.zero_grad()
 
         # Forward with AMP
-        with autocast(enabled=use_amp):
+        with autocast(device_type=device.type, enabled=use_amp):
             outputs = model(images).squeeze(1)  # (B,) logits
             loss = criterion(outputs, labels)
 
@@ -66,7 +66,7 @@ def validate(model, dataloader, criterion, device, use_amp):
     for images, labels, _ in tqdm(dataloader, desc="Val"):
         images, labels = images.to(device), labels.to(device)
 
-        with autocast(enabled=use_amp):
+        with autocast(device_type=device.type, enabled=use_amp):
             outputs = model(images).squeeze(1)
             loss = criterion(outputs, labels)
 
@@ -127,10 +127,10 @@ def train_model(
 
     # Optimizer + scheduler
     optimizer = AdamW(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=SCHEDULER_PATIENCE, verbose=True)
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=SCHEDULER_PATIENCE)
 
     # AMP scaler
-    scaler = GradScaler(enabled=use_amp)
+    scaler = GradScaler(device='cuda', enabled=use_amp)
 
     # Training loop
     history = {"train_loss": [], "train_acc": [], "val_loss": [], "val_acc": [], "lr": []}

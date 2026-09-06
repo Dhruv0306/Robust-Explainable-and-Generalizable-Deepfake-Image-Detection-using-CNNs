@@ -3,7 +3,7 @@ Evaluation: frame-level inference, video-level aggregation, metrics.
 """
 import torch
 import torch.nn as nn
-from torch.cuda.amp import autocast
+from torch.amp import autocast
 from pathlib import Path
 import logging
 import json
@@ -33,7 +33,7 @@ def get_frame_predictions(model, dataloader, device, use_amp=True) -> pd.DataFra
     for images, labels, video_ids in tqdm(dataloader, desc="Inference"):
         images = images.to(device)
 
-        with autocast(enabled=use_amp):
+        with autocast(device_type=device.type, enabled=use_amp):
             logits = model(images).squeeze(1)  # (B,)
 
         probs = torch.sigmoid(logits).cpu().numpy()

@@ -56,7 +56,7 @@ def assign_splits(components: List[Set[str]], seed: int = 42) -> Dict[str, Set[s
     assert len(splits["train"] & splits["test"]) == 0
     assert len(splits["val"] & splits["test"]) == 0
 
-    logging.info("Splits created ✓")
+    logging.info("Splits created")
     return splits
 
 

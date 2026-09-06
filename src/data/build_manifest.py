@@ -10,7 +10,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 from config import *
 
 
-def build_manifest(face_processed_metadata: List[Dict]):
+def build_manifest(face_processed_metadata: list[dict]):
     """
     Build final CSV and JSON manifests from face-processed metadata.
     """

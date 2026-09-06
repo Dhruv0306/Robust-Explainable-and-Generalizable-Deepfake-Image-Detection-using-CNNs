@@ -50,7 +50,7 @@ def run_data_pipeline():
     from data.build_manifest import build_manifest
     build_manifest(face_metadata)
 
-    logging.info("Data preprocessing complete ✓")
+    logging.info("Data preprocessing complete")
 
 
 def run_single_experiment(model_name: str, seed: int, manifest_path: Path, device=None):
@@ -184,7 +184,7 @@ def main():
         run_experiment_matrix(manifest_path)
 
     logging.info("=" * 80)
-    logging.info("All experiments complete ✓")
+    logging.info("All experiments complete")
     logging.info("=" * 80)
 
 

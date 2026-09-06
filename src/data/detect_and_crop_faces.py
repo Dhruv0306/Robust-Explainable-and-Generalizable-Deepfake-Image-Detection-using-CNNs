@@ -70,6 +70,33 @@ def expand_bbox(bbox: List[float], margin: float, img_shape: Tuple[int, int]) ->
     return [x1, y1, x2, y2]
 
 
+def _get_mtcnn_device() -> torch.device:
+    """Pick a device MTCNN can actually run on (sm_120 GPUs report cuda but fail)."""
+    if not torch.cuda.is_available():
+        return torch.device('cpu')
+    try:
+        # Smoke-test: run a tiny tensor op on CUDA to verify kernels work
+        t = torch.zeros(1, device='cuda')
+        _ = t + 1
+        return torch.device('cuda')
+    except RuntimeError:
+        logging.warning("CUDA available but kernels unsupported (sm_120?), falling back to CPU for face detection")
+        return torch.device('cpu')
+
+
+# ponytail: singleton — one MTCNN per process, not one per video
+_mtcnn_cache: dict = {}
+
+
+def _get_mtcnn() -> 'MTCNN':
+    """Return a cached MTCNN instance."""
+    if 'instance' not in _mtcnn_cache:
+        device = _get_mtcnn_device()
+        logging.info(f"Initializing MTCNN on {device}")
+        _mtcnn_cache['instance'] = MTCNN(keep_all=True, device=device)
+    return _mtcnn_cache['instance']
+
+
 def detect_and_crop_faces(frame_metadata: List[Dict]) -> List[Dict]:
     """
     Process frames for one video: detect faces, track via IoU, crop and save.
@@ -78,9 +105,7 @@ def detect_and_crop_faces(frame_metadata: List[Dict]) -> List[Dict]:
     if not frame_metadata:
         return []
 
-    # Initialize MTCNN
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    mtcnn = MTCNN(keep_all=True, device=device)
+    mtcnn = _get_mtcnn()
 
     processed = []
     prev_bbox = None

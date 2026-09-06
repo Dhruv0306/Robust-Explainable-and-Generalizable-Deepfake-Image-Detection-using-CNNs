@@ -37,7 +37,7 @@ def inspect_dataset() -> Dict[str, List[Path]]:
         assert len(video_paths[cat]) == VIDEOS_PER_CATEGORY, \
             f"{cat}: expected {VIDEOS_PER_CATEGORY}, found {len(video_paths[cat])}"
 
-    logging.info("Dataset inspection passed ✓")
+    logging.info("Dataset inspection passed")
     return video_paths
 
 

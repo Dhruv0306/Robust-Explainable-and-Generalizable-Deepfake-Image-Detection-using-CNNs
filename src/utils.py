@@ -13,12 +13,24 @@ from typing import Optional
 warnings.filterwarnings('ignore', category=UserWarning, message='.*CUDA capability.*')
 
 
+def _cuda_is_usable() -> bool:
+    """Return True only when CUDA kernels can actually run."""
+    try:
+        if not torch.cuda.is_available():
+            return False
+        # Smoke-test catches GPUs newer than the installed PyTorch CUDA build.
+        _ = torch.zeros(1, device="cuda") + 1
+        return True
+    except RuntimeError:
+        return False
+
+
 def set_seed(seed: int):
     """Set random seeds for reproducibility"""
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
-    if torch.cuda.is_available():
+    if _cuda_is_usable():
         torch.cuda.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
         torch.backends.cudnn.deterministic = True
@@ -30,17 +42,22 @@ def get_device(prefer_cpu: bool = False) -> tuple[torch.device, dict]:
     Select device and return device + info dict.
     Returns: (device, info_dict)
     """
+    cuda_available = torch.cuda.is_available()
+    cuda_usable = False if prefer_cpu else _cuda_is_usable()
     info = {
-        "cuda_available": torch.cuda.is_available(),
+        "cuda_available": cuda_available,
+        "cuda_usable": cuda_usable,
         "device_type": None,
         "device_name": None,
         "amp_enabled": False,
     }
 
-    if prefer_cpu or not torch.cuda.is_available():
+    if prefer_cpu or not cuda_usable:
         device = torch.device("cpu")
         info["device_type"] = "cpu"
         info["device_name"] = "CPU"
+        if cuda_available and not prefer_cpu:
+            logging.warning("CUDA is visible but cannot run kernels; using CPU")
     else:
         device = torch.device("cuda")
         info["device_type"] = "cuda"

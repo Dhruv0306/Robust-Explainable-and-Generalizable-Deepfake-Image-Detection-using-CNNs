@@ -9,6 +9,10 @@ import warnings
 # Suppress torch's noisy CUDA warning; get_device() reports the usable fallback clearly.
 warnings.filterwarnings('ignore', category=UserWarning, module=r'torch\.cuda\..*')
 
+# Suppress huggingface_hub symlink-cache warning on Windows; it is informational only.
+import os
+os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
+
 # === Paths ===
 PROJECT_ROOT = Path(__file__).parent.parent
 DATA_ROOT = PROJECT_ROOT / "data"

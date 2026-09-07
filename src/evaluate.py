@@ -95,14 +95,24 @@ def compute_metrics(df: pd.DataFrame) -> Dict:
     y_pred = df["pred_fake"].values
     y_prob = df["prob_fake"].values
 
+    # Check if both classes are present
+    classes_present = np.unique(y_true)
+
     metrics = {
         "accuracy": accuracy_score(y_true, y_pred),
         "precision": precision_score(y_true, y_pred, zero_division=0),
         "recall": recall_score(y_true, y_pred, zero_division=0),
         "f1": f1_score(y_true, y_pred, zero_division=0),
-        "roc_auc": roc_auc_score(y_true, y_prob),
-        "confusion_matrix": confusion_matrix(y_true, y_pred).tolist(),
     }
+
+    # ROC AUC requires both classes
+    if len(classes_present) == 2:
+        metrics["roc_auc"] = roc_auc_score(y_true, y_prob)
+    else:
+        metrics["roc_auc"] = float("nan")
+
+    # Force 2x2 confusion matrix shape even for single-class subsets
+    metrics["confusion_matrix"] = confusion_matrix(y_true, y_pred, labels=[0, 1]).tolist()
 
     return metrics
 

@@ -161,20 +161,31 @@ def train_model(
         history["val_acc"].append(val_acc)
         history["lr"].append(current_lr)
 
+        # Save checkpoint for this epoch
+        epoch_checkpoint_path = output_dir / f"checkpoint_epoch_{epoch}.pth"
+        torch.save({
+            'epoch': epoch,
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'val_loss': val_loss,
+            'val_acc': val_acc,
+        }, epoch_checkpoint_path)
+        logging.info(f"Saved epoch {epoch} checkpoint")
+
         # Checkpoint best model
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             best_epoch = epoch
             patience_counter = 0
-            # Save checkpoint
-            checkpoint_path = output_dir / "best_checkpoint.pth"
+            # Save best checkpoint (overwrites previous best)
+            best_checkpoint_path = output_dir / "best_checkpoint.pth"
             torch.save({
                 'epoch': epoch,
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'val_loss': val_loss,
                 'val_acc': val_acc,
-            }, checkpoint_path)
+            }, best_checkpoint_path)
             logging.info(f"Saved best checkpoint at epoch {epoch}")
         else:
             patience_counter += 1

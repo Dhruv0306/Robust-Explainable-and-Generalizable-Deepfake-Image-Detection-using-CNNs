@@ -565,6 +565,20 @@ extracted_frames/
 transformed_images/
 augmented_data/
 
+# -----------------------------------------------------------------------------
+# Unignore outputs, configs, history, and best checkpoints for tracking/tests
+# -----------------------------------------------------------------------------
+!data/output/
+!data/output/**
+!data/outputs/
+!data/outputs/**
+!data/checkpoints/
+!data/checkpoints/**
+!**/best_checkpoint.pth
+!**/config.json
+!**/config.txt
+!**/history.json
+
 # =============================================================================
 # End of .gitignore
 # =============================================================================

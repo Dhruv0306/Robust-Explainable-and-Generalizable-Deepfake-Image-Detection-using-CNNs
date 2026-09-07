@@ -96,14 +96,13 @@ def run_single_experiment(model_name: str, seed: int, manifest_path: Path, devic
     save_config(config, output_dir)
     logging.info(f"Config saved to {output_dir}")
 
-    # Train
+    # Train (passes checkpoint_dir so per-epoch checkpoints go there; best checkpoint goes to both)
     from train import train_model
-    train_results = train_model(model_name, manifest_path, output_dir, seed, device)
+    train_results = train_model(model_name, manifest_path, output_dir, seed, device, checkpoint_dir=checkpoint_dir)
 
-    # Copy best checkpoint to checkpoint dir
+    # Copy config files to checkpoint dir (best_checkpoint already copied by train_model)
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
     import shutil
-    shutil.copy(output_dir / "best_checkpoint.pth", checkpoint_dir / "best_checkpoint.pth")
     shutil.copy(output_dir / "config.json", checkpoint_dir / "config.json")
     shutil.copy(output_dir / "config.txt", checkpoint_dir / "config.txt")
     logging.info(f"Checkpoint saved to {checkpoint_dir}")

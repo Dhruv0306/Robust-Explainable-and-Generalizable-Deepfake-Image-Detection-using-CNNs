@@ -87,6 +87,7 @@ def train_model(
     seed: int = 42,
     device: Optional[torch.device] = None,
     batch_size_override: Optional[int] = None,
+    checkpoint_dir: Optional[Path] = None,
 ) -> Dict:
     """
     Full training pipeline.
@@ -139,6 +140,8 @@ def train_model(
     patience_counter = 0
 
     output_dir.mkdir(parents=True, exist_ok=True)
+    if checkpoint_dir is not None:
+        checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
     for epoch in range(1, MAX_EPOCHS + 1):
         logging.info(f"Epoch {epoch}/{MAX_EPOCHS}")
@@ -162,7 +165,11 @@ def train_model(
         history["lr"].append(current_lr)
 
         # Save checkpoint for this epoch
-        epoch_checkpoint_path = output_dir / f"checkpoint_epoch_{epoch}.pth"
+        if checkpoint_dir is not None:
+            epoch_checkpoint_path = checkpoint_dir / f"checkpoint_epoch_{epoch}.pth"
+        else:
+            epoch_checkpoint_path = CHECKPOINT_ROOT / f"checkpoint_epoch_{epoch}.pth"
+
         torch.save({
             'epoch': epoch,
             'model_state_dict': model.state_dict(),
@@ -177,7 +184,7 @@ def train_model(
             best_val_loss = val_loss
             best_epoch = epoch
             patience_counter = 0
-            # Save best checkpoint (overwrites previous best)
+            # Save best checkpoint in output_dir
             best_checkpoint_path = output_dir / "best_checkpoint.pth"
             torch.save({
                 'epoch': epoch,
@@ -187,6 +194,11 @@ def train_model(
                 'val_acc': val_acc,
             }, best_checkpoint_path)
             logging.info(f"Saved best checkpoint at epoch {epoch}")
+
+            # Also mirror best checkpoint to checkpoint_dir if provided
+            if checkpoint_dir is not None:
+                import shutil
+                shutil.copy(best_checkpoint_path, checkpoint_dir / "best_checkpoint.pth")
         else:
             patience_counter += 1
 

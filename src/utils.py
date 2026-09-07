@@ -2,6 +2,7 @@
 Utilities: reproducibility, device selection, logging
 """
 import random
+import sys
 import numpy as np
 import torch
 import logging
@@ -23,6 +24,34 @@ def _cuda_is_usable() -> bool:
         return True
     except RuntimeError:
         return False
+
+
+def ensure_gpu_torch_if_needed():
+    """
+    If a GPU is present but CPU-only torch is installed, reinstall CUDA torch.
+    No-op on CPU machines or when torch already has CUDA support.
+    """
+    import subprocess
+
+    has_gpu = torch.cuda.is_available()
+    torch_cuda = torch.version.cuda
+
+    logging.info(f"PyTorch version: {torch.__version__}, CUDA build: {torch_cuda or 'CPU-only'}")
+    if not has_gpu and torch_cuda is None:
+        logging.info("No CUDA GPU detected; keeping CPU-only PyTorch")
+        return
+    if torch_cuda is not None:
+        logging.info("PyTorch already has CUDA support")
+        return
+
+    logging.warning("CUDA GPU detected but CPU-only PyTorch is installed; reinstalling CUDA PyTorch")
+    subprocess.check_call([sys.executable, "-m", "pip", "uninstall", "-y", "torch", "torchvision", "torchaudio"])
+    subprocess.check_call([
+        sys.executable, "-m", "pip", "install", "torch", "torchvision", "torchaudio",
+        "--index-url", "https://download.pytorch.org/whl/cu124",
+    ])
+    logging.error("PyTorch was reinstalled. Restart this command so the new torch build is loaded.")
+    sys.exit(0)
 
 
 def set_seed(seed: int):

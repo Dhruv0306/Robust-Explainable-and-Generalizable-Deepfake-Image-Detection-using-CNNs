@@ -8,7 +8,7 @@ from pathlib import Path
 import sys
 sys.path.append(str(Path(__file__).parent))
 from config import *
-from utils import setup_logging, set_seed, get_device, save_config, get_batch_size
+from utils import setup_logging, set_seed, get_device, save_config, get_batch_size, ensure_gpu_torch_if_needed
 from models import get_model_input_size
 
 
@@ -156,6 +156,8 @@ def main():
     logging.info("=" * 80)
     logging.info("Approach 1: CNN Baseline for Deepfake Detection")
     logging.info("=" * 80)
+
+    ensure_gpu_torch_if_needed()
 
     # Data pipeline
     if not args.skip_data:

@@ -572,8 +572,6 @@ augmented_data/
 !data/output/**
 !data/outputs/
 !data/outputs/**
-!data/checkpoints/
-!data/checkpoints/**
 !**/best_checkpoint.pth
 !**/config.json
 !**/config.txt

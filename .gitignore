@@ -240,6 +240,7 @@ data/pr-body/*
 !assets/**/*.jpg
 !docs/**/*.png
 !docs/**/*.jpg
+!data/reports/figures/**/*.png
 
 # Dataset metadata that should not be committed
 data_splits/

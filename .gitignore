@@ -204,6 +204,7 @@ data/downloads/*
 data/scripts/*
 data/datasets/*
 data/pr-body/*
+!data/pr-body/approach-1_PR.md
 
 # Keep data directory structure and documentation
 !data/raw/.gitkeep

@@ -1,6 +1,7 @@
 # Robust, Explainable, and Generalizable Deepfake Image Detection using CNNs
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Release](https://img.shields.io/badge/Release-approach--1-green.svg)](https://github.com/Dhruv0306/Robust-Explainable-and-Generalizable-Deepfake-Image-Detection-using-CNNs/releases/tag/approach-1)
 [![Research Project](https://img.shields.io/badge/Project-Research-blue.svg)]()
 [![Domain](https://img.shields.io/badge/Domain-Deepfake%20Detection-red.svg)]()
 

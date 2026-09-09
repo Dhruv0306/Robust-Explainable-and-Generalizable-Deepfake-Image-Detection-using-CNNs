@@ -203,6 +203,8 @@ data/cache/*
 data/downloads/*
 data/scripts/*
 data/datasets/*
+data/pr-body/*
+!data/pr-body/approach-1_PR.md
 
 # Keep data directory structure and documentation
 !data/raw/.gitkeep
@@ -238,6 +240,7 @@ data/datasets/*
 !assets/**/*.jpg
 !docs/**/*.png
 !docs/**/*.jpg
+!data/reports/figures/**/*.png
 
 # Dataset metadata that should not be committed
 data_splits/
@@ -563,6 +566,18 @@ extracted_frames/
 # Intermediate transformation outputs
 transformed_images/
 augmented_data/
+
+# -----------------------------------------------------------------------------
+# Unignore outputs, configs, history, and best checkpoints for tracking/tests
+# -----------------------------------------------------------------------------
+!data/output/
+!data/output/**
+!data/outputs/
+!data/outputs/**
+!**/best_checkpoint.pth
+!**/config.json
+!**/config.txt
+!**/history.json
 
 # =============================================================================
 # End of .gitignore

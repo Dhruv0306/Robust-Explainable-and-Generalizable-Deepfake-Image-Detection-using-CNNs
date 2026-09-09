@@ -1,0 +1,25 @@
+================================================================================
+Approach 1: CNN Baseline Configuration
+================================================================================
+
+model: resnet50
+seed: 123
+device: cuda
+device_name: unknown
+cuda_available: False
+amp_enabled: False
+batch_size: 32
+num_workers: 4
+input_size: 224
+learning_rate: 0.0001
+weight_decay: 0.0001
+max_epochs: 30
+early_stopping_patience: 5
+scheduler_patience: 2
+hflip_prob: 0.5
+gaussian_blur_prob: 0.1
+frame_sampling_interval: 4
+min_usable_frames: 20
+bbox_expansion_margin: 0.3
+iou_threshold: 0.5
+run_name: resnet50_LAPTOP-KTKP3V55_2026-09-09_18-57-07

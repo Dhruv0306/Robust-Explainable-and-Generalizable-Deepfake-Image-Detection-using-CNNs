@@ -61,6 +61,28 @@ This report presents the complete experimental results for Approach 1: a CNN bas
 
 ---
 
+## 3.3 Visual Analytics
+
+### 3.3.1 Model Comparison: Accuracy and F1-Score
+
+![Model Accuracy and F1-Score Comparison](figures/model_comparison_accuracy_f1.png)
+
+*Bar chart comparing mean Accuracy and F1-Score across backbones (averaged over 3 seeds). Error bars show ±1 standard deviation across seeds.*
+
+### 3.3.2 Model Comparison: ROC-AUC
+
+![Model ROC-AUC Comparison](figures/model_comparison_roc_auc.png)
+
+*ResNet50 achieves the highest mean ROC-AUC (0.991) with the tightest variance. Xception reaches perfect 1.0 at seed 2024. EfficientNet-B0 is consistent but lower overall.*
+
+### 3.3.3 Seed Sensitivity Distribution
+
+![Seed Sensitivity Distribution](figures/seed_sensitivity_distribution.png)
+
+*Box plot of accuracy across 3 seeds per backbone. ResNet50 shows the narrowest spread (most seed-stable), while Xception has widest variance due to its 1.0 peak at seed 2024.*
+
+---
+
 ## 4. Aggregation Method Comparison (Video-Level)
 
 ### 4.1 Mean vs Median vs Mode — Accuracy

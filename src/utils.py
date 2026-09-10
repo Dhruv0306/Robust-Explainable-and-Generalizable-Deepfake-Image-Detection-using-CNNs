@@ -146,3 +146,61 @@ def save_config(config_dict: dict, output_dir: Path):
         f.write("=" * 80 + "\n\n")
         for key, value in config_dict.items():
             f.write(f"{key}: {value}\n")
+
+
+def discover_approach1_checkpoints(output_dir: Optional[Path] = None) -> list[dict]:
+    """
+    Discover all 9 trained Approach 1 checkpoints from output directory.
+
+    Returns:
+        List of dicts with keys: model, seed, run_name, run_dir, checkpoint_path,
+        config_path, input_size
+    """
+    import json
+    if output_dir is None:
+        from config import OUTPUT_ROOT
+        output_dir = OUTPUT_ROOT
+
+    output_dir = Path(output_dir)
+    checkpoints = []
+
+    for run_dir in sorted(output_dir.iterdir()):
+        if not run_dir.is_dir():
+            continue
+        cfg_file = run_dir / "config.json"
+        ckpt_file = run_dir / "best_checkpoint.pth"
+
+        if cfg_file.exists() and ckpt_file.exists():
+            try:
+                with open(cfg_file, "r") as f:
+                    cfg = json.load(f)
+                model_name = cfg.get("model")
+                seed = cfg.get("seed")
+                input_size = cfg.get("input_size")
+                run_name = cfg.get("run_name", run_dir.name)
+
+                if model_name and seed is not None:
+                    checkpoints.append({
+                        "model": model_name,
+                        "seed": int(seed),
+                        "run_name": run_name,
+                        "run_dir": run_dir,
+                        "checkpoint_path": ckpt_file,
+                        "config_path": cfg_file,
+                        "input_size": input_size,
+                    })
+            except Exception as e:
+                logging.warning(f"Failed to inspect run directory {run_dir}: {e}")
+
+    # Sort deterministically by model then seed
+    checkpoints.sort(key=lambda x: (x["model"], x["seed"]))
+    return checkpoints
+
+
+def get_approach1_checkpoint(model: str, seed: int, output_dir: Optional[Path] = None) -> dict:
+    """Retrieve specific Approach 1 checkpoint by model name and seed."""
+    checkpoints = discover_approach1_checkpoints(output_dir)
+    for ckpt in checkpoints:
+        if ckpt["model"] == model and ckpt["seed"] == seed:
+            return ckpt
+    raise FileNotFoundError(f"Approach 1 checkpoint not found for model={model}, seed={seed}")

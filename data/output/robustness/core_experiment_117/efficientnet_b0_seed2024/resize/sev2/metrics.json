@@ -1,0 +1,119 @@
+{
+  "condition": {
+    "transformation": "resize",
+    "severity": 2,
+    "direction": "none",
+    "parameter_name": "scale",
+    "parameter_value": 0.5,
+    "condition_id": "resize_sev2_s50"
+  },
+  "total_frames": 6304,
+  "successful_frames": 6304,
+  "failed_frames": 0,
+  "frame_metrics": {
+    "accuracy": 0.868496192893401,
+    "precision": 0.9096684534445106,
+    "recall": 0.9245359160613398,
+    "f1": 0.9170419293505454,
+    "roc_auc": 0.8992391951248135,
+    "confusion_matrix": [
+      [
+        893,
+        455
+      ],
+      [
+        374,
+        4582
+      ]
+    ]
+  },
+  "video_metrics": {
+    "mean": {
+      "accuracy": 0.875,
+      "precision": 0.8,
+      "recall": 1.0,
+      "f1": 0.8888888888888888,
+      "roc_auc": 0.9236111111111112,
+      "confusion_matrix": [
+        [
+          9,
+          3
+        ],
+        [
+          0,
+          12
+        ]
+      ]
+    },
+    "median": {
+      "accuracy": 0.875,
+      "precision": 0.8,
+      "recall": 1.0,
+      "f1": 0.8888888888888888,
+      "roc_auc": 0.951388888888889,
+      "confusion_matrix": [
+        [
+          9,
+          3
+        ],
+        [
+          0,
+          12
+        ]
+      ]
+    },
+    "mode": {
+      "accuracy": 0.875,
+      "precision": 0.8,
+      "recall": 1.0,
+      "f1": 0.8888888888888888,
+      "roc_auc": 0.875,
+      "confusion_matrix": [
+        [
+          9,
+          3
+        ],
+        [
+          0,
+          12
+        ]
+      ]
+    }
+  },
+  "per_category_metrics": {
+    "Original": {
+      "accuracy": 0.75,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "roc_auc": NaN,
+      "confusion_matrix": [
+        [
+          9,
+          3
+        ],
+        [
+          0,
+          0
+        ]
+      ]
+    },
+    "Deepfakes": {
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "roc_auc": NaN,
+      "confusion_matrix": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          12
+        ]
+      ]
+    }
+  }
+}

@@ -1,0 +1,119 @@
+{
+  "condition": {
+    "transformation": "brightness_dark",
+    "severity": 3,
+    "direction": "darker",
+    "parameter_name": "factor",
+    "parameter_value": 0.4,
+    "condition_id": "brightness_dark_sev3_f40"
+  },
+  "total_frames": 6304,
+  "successful_frames": 6304,
+  "failed_frames": 0,
+  "frame_metrics": {
+    "accuracy": 0.746510152284264,
+    "precision": 0.9345238095238095,
+    "recall": 0.7286117836965295,
+    "f1": 0.8188208616780045,
+    "roc_auc": 0.8758954916020626,
+    "confusion_matrix": [
+      [
+        1095,
+        253
+      ],
+      [
+        1345,
+        3611
+      ]
+    ]
+  },
+  "video_metrics": {
+    "mean": {
+      "accuracy": 0.7916666666666666,
+      "precision": 0.8181818181818182,
+      "recall": 0.75,
+      "f1": 0.782608695652174,
+      "roc_auc": 0.9027777777777779,
+      "confusion_matrix": [
+        [
+          10,
+          2
+        ],
+        [
+          3,
+          9
+        ]
+      ]
+    },
+    "median": {
+      "accuracy": 0.75,
+      "precision": 0.75,
+      "recall": 0.75,
+      "f1": 0.75,
+      "roc_auc": 0.8958333333333334,
+      "confusion_matrix": [
+        [
+          9,
+          3
+        ],
+        [
+          3,
+          9
+        ]
+      ]
+    },
+    "mode": {
+      "accuracy": 0.75,
+      "precision": 0.75,
+      "recall": 0.75,
+      "f1": 0.75,
+      "roc_auc": 0.75,
+      "confusion_matrix": [
+        [
+          9,
+          3
+        ],
+        [
+          3,
+          9
+        ]
+      ]
+    }
+  },
+  "per_category_metrics": {
+    "Original": {
+      "accuracy": 0.8333333333333334,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "roc_auc": NaN,
+      "confusion_matrix": [
+        [
+          10,
+          2
+        ],
+        [
+          0,
+          0
+        ]
+      ]
+    },
+    "Deepfakes": {
+      "accuracy": 0.75,
+      "precision": 1.0,
+      "recall": 0.75,
+      "f1": 0.8571428571428571,
+      "roc_auc": NaN,
+      "confusion_matrix": [
+        [
+          0,
+          0
+        ],
+        [
+          3,
+          9
+        ]
+      ]
+    }
+  }
+}

@@ -323,7 +323,20 @@ model.
 
 ------------------------------------------------------------------------
 
-## 10. JPEG compression
+## 10. Severity anchors and parameter freeze
+
+The numerical severity parameters are frozen before implementation and must not be changed between pilot and full execution without creating a new experiment configuration.
+
+| Transformation | Severity 1 | Severity 2 | Severity 3 |
+|---|---:|---:|---:|
+| JPEG quality | 80 | 50 | 20 |
+| Resolution scale | 0.75 | 0.50 | 0.25 |
+| Darkening factor | 0.80 | 0.60 | 0.40 |
+| Brightening factor | 1.20 | 1.40 | 1.60 |
+
+The clean condition is severity 0/reference. Optional transformations retain their disabled-by-default status and use separately frozen parameters when enabled.
+
+## 11. JPEG compression
 
 ### Objective
 
@@ -370,7 +383,13 @@ be recorded in the experiment configuration.
 
 ------------------------------------------------------------------------
 
-## 11. Lower-resolution resizing
+### JPEG color-space and encoding safety
+
+Face crops must have one explicitly defined in-memory color convention. If PIL provides RGB arrays, the JPEG implementation must either use a PIL RGB encode path or explicitly convert RGB to BGR before using OpenCV's JPEG encoder. The implementation must never rely on an implicit channel-order assumption.
+
+JPEG encode/decode must be validated before the decoded image is passed to the model. Encoding failure is recorded as a transformation failure and is not counted as a CNN robustness failure.
+
+## 12. Lower-resolution resizing
 
 ### Objective
 
@@ -427,7 +446,7 @@ The resize scale parameters must be fixed in configuration.
 
 ------------------------------------------------------------------------
 
-## 12. Brightness changes
+## 13. Brightness changes
 
 Brightness is evaluated in both directions.
 
@@ -459,7 +478,15 @@ The transformation must be deterministic.
 
 ------------------------------------------------------------------------
 
-## 13. Gaussian noise
+### Photometric arithmetic safety
+
+Brightness and contrast arithmetic must be performed in float32, followed by clipping to the valid image range and conversion to uint8:
+
+`np.clip(image_float32 * alpha, 0, 255).astype(np.uint8)`
+
+This prevents uint8 overflow and ensures the transformed image has a valid image representation. Brightness transformations must apply the frozen factors above for both darker and brighter directions.
+
+## 14. Gaussian noise
 
 Gaussian noise is optional and disabled by default.
 
@@ -504,7 +531,7 @@ same source frame + same severity
 
 ------------------------------------------------------------------------
 
-## 14. Gaussian blur
+## 15. Gaussian blur
 
 Gaussian blur is optional and disabled by default.
 
@@ -524,7 +551,7 @@ requirements of the selected image-processing library.
 
 ------------------------------------------------------------------------
 
-## 15. Contrast changes
+## 16. Contrast changes
 
 Contrast changes are optional and disabled by default.
 
@@ -539,7 +566,7 @@ Raw results must retain the factor used for each image.
 
 ------------------------------------------------------------------------
 
-## 16. Controlled cropping
+## 17. Controlled cropping
 
 Controlled cropping is optional and disabled by default.
 
@@ -568,7 +595,7 @@ additional stochastic variable and makes the experiment less controlled.
 
 ------------------------------------------------------------------------
 
-## 17. Transformation configuration
+## 18. Transformation configuration
 
 Robustness settings should be centralized.
 
@@ -752,6 +779,33 @@ This is required for a fair architecture comparison.
 
 ------------------------------------------------------------------------
 
+## Robustness dataset metadata
+
+The robustness evaluation path must retain complete manifest metadata for every frame prediction, including:
+- frame path
+- video ID
+- category/manipulation
+- binary label
+- original frame number where available
+- split
+
+A lightweight robustness dataset may be implemented instead of changing the Approach 1 dataset interface if that avoids unnecessary regression risk.
+
+## Clean baseline parity gate
+
+Before the pilot or full robustness matrix, the robustness evaluation harness must reproduce the clean inference behavior used in Approach 1 for at least one checkpoint.
+
+The parity test must verify:
+- identical checkpoint loading
+- identical model-specific resize and normalization
+- identical frame selection and manifest population
+- identical frame ordering/alignment
+- equivalent clean frame probabilities within the expected numerical tolerance
+- identical video-level aggregation behavior
+- matching clean metrics
+
+If the clean path does not pass this gate, transformed experiments must not proceed.
+
 ## 23. Frame-level predictions
 
 Every quantitative robustness condition must retain frame-level
@@ -792,6 +846,12 @@ Frame-level fake probabilities are retained because they support later
 analyses without rerunning inference.
 
 ------------------------------------------------------------------------
+
+## Clean baseline caching
+
+Each of the nine checkpoints receives exactly one clean inference pass. Clean frame-level and video-level predictions are stored under the checkpoint's `clean/` output and reused for every enabled transformation.
+
+Transformed predictions must be compared against this fixed clean baseline. A transformation experiment must not recompute the clean baseline independently for each severity.
 
 ## 24. Video-level aggregation
 
@@ -1148,6 +1208,12 @@ video are correlated.
 
 ------------------------------------------------------------------------
 
+## Interpreting transformation corrections
+
+A `clean incorrect -> transformed correct` transition is recorded as a transformation-induced correction. It must not automatically be interpreted as evidence that the corruption improves the detector.
+
+The analysis must check whether corrections are associated with a systematic probability shift toward the Real or Fake class. This is especially relevant when a corruption removes high-frequency evidence and changes borderline predictions.
+
 ## 36. Error-state transition analysis
 
 For every video, classify the clean/transformed pair into four states:
@@ -1198,6 +1264,12 @@ The statistical analysis supports interpretation but does not replace
 the primary performance measurements.
 
 ------------------------------------------------------------------------
+
+## Transformation failure accounting
+
+Every transformation operation must record success or failure. Invalid parameters, failed JPEG encoding/decoding, invalid crop geometry, or other preprocessing failures must be logged separately.
+
+Transformation-processing failures must never be counted as model robustness failures, prediction flips, or classification errors.
 
 ## 38. Robustness ranking
 
@@ -1714,6 +1786,17 @@ hard-coded.
 
 ------------------------------------------------------------------------
 
+## Final core experiment matrix
+
+For each of the nine Approach 1 checkpoints, the core matrix contains:
+- 1 clean reference condition
+- 3 JPEG severities
+- 3 resize severities
+- 3 darkening severities
+- 3 brightening severities
+
+This is 13 conditions per checkpoint and 117 checkpoint-condition evaluations in total. The nine clean evaluations are performed once and cached, so the transformed conditions do not repeat clean inference.
+
 ## 54. Avoiding unnecessary computation
 
 The implementation should avoid redundant inference where possible.
@@ -2089,6 +2172,18 @@ satisfied:
 
 ------------------------------------------------------------------------
 
+## Implementation gates
+
+The implementation proceeds through explicit validation gates:
+
+1. Implement the transformation engine and parameter validation.
+2. Add unit tests for shape preservation, dtype, pixel-range clipping, deterministic behavior, severity ordering, JPEG validity, and RGB/BGR correctness.
+3. Freeze the configuration containing the numerical severity anchors.
+4. Run the clean-parity test against an Approach 1 checkpoint.
+5. Run one pilot checkpoint, preferably ResNet50 Seed 42, across the full core transformation matrix.
+6. Inspect prediction files, metrics, transformation failure logs, and visual samples.
+7. Only after the pilot passes, execute the full nine-checkpoint matrix and aggregate the results.
+
 ## 68. Implementation sequence
 
 ### Phase 1: repository and baseline integration
@@ -2217,6 +2312,19 @@ The report describes what was actually observed.
 These should not be mixed.
 
 ------------------------------------------------------------------------
+
+## Phase order
+
+`robustness.py`
+→ transformation unit tests
+→ frozen configuration
+→ clean-parity test
+→ ResNet50 Seed 42 pilot
+→ pilot inspection
+→ full 9-checkpoint matrix
+→ robustness analysis
+→ paired statistical analysis
+→ figures and report
 
 ## 70. Final experiment flow
 

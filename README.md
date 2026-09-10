@@ -1,7 +1,7 @@
 # Robust, Explainable, and Generalizable Deepfake Image Detection using CNNs
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Release](https://img.shields.io/badge/Release-approach--1-green.svg)](https://github.com/Dhruv0306/Robust-Explainable-and-Generalizable-Deepfake-Image-Detection-using-CNNs/releases/tag/approach-1)
+[![Release](https://img.shields.io/badge/Release-approach--2-green.svg)](https://github.com/Dhruv0306/Robust-Explainable-and-Generalizable-Deepfake-Image-Detection-using-CNNs/releases/tag/approach-2)
 [![Research Project](https://img.shields.io/badge/Project-Research-blue.svg)]()
 [![Domain](https://img.shields.io/badge/Domain-Deepfake%20Detection-red.svg)]()
 
@@ -750,9 +750,9 @@ This project is released under the [MIT License](LICENSE).
 
 ## Project Status
 
-**Current Stage:** Approach 1 Implementation Complete
+**Current Stage:** Approach 2 Robustness Evaluation Complete
 
-Approach 1 baseline is implemented and ready to run. See `src/README.md` for usage and `APPROACH_01_SUMMARY.md` for implementation details. Robustness experiments (Approach 2), Grad-CAM analysis (Approach 3), and generalization experiments (Approach 4) will follow after baseline results are collected.
+Approach 1 baseline and Approach 2 robustness evaluation under image transformations are fully implemented, verified, and released. See `data/reports/approach-2-robustness-report.md` for robustness evaluation results and `src/README.md` for pipeline usage. Grad-CAM explainability (Approach 3) and generalization experiments (Approach 4) will follow next.
 
 ---
 

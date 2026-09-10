@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="580.5" viewBox="0 0 640 580.5">
+  <!-- background -->
+  <rect width="640" height="580.5" rx="10" fill="white" stroke="#dee2e6" stroke-width="1"/>
+  <text x="320" y="48" font-size="13" font-weight="bold" font-family="Segoe UI,system-ui,sans-serif" fill="#495057" text-anchor="middle" letter-spacing="0.8">FIGURE 1 — DATA PRE-PROCESSING PIPELINE</text>
+  <rect x="74" y="66" width="534" height="74.5" rx="7" fill="#eff6ff" stroke="#2563eb" stroke-width="2.5"/>
+  <text x="86" y="90.5" font-size="12.5" font-weight="bold" font-family="Segoe UI,system-ui,sans-serif" fill="#212529">Dataset — FaceForensics++ C23</text>
+  <text x="86" y="112.5" font-size="11.5" font-family="Segoe UI,system-ui,sans-serif" fill="#495057">650 videos · 5 categories: Original, DeepFake, Face2Face,</text>
+  <text x="86" y="128.5" font-size="11.5" font-family="Segoe UI,system-ui,sans-serif" fill="#495057">FaceSwap, NeuralTextures (130 each)</text>
+  <circle cx="46" cy="103.25" r="14" fill="#2563eb"/>
+  <text x="46" y="107.75" font-size="11" font-weight="bold" font-family="Segoe UI,system-ui,sans-serif" fill="white" text-anchor="middle">1</text>
+  <rect x="74" y="154.5" width="534" height="90.5" rx="7" fill="#ecfeff" stroke="#0891b2" stroke-width="2.5"/>
+  <text x="86" y="179" font-size="12.5" font-weight="bold" font-family="Segoe UI,system-ui,sans-serif" fill="#212529">Leakage-Safe Subject-Level Split</text>
+  <text x="86" y="201" font-size="11.5" font-family="Segoe UI,system-ui,sans-serif" fill="#495057">Build target→source relationship graph · Find 65 connected</text>
+  <text x="86" y="217" font-size="11.5" font-family="Segoe UI,system-ui,sans-serif" fill="#495057">components · Assign: 100 train / 20 val / 12 test groups — no</text>
+  <text x="86" y="233" font-size="11.5" font-family="Segoe UI,system-ui,sans-serif" fill="#495057">real identity shared across splits.</text>
+  <circle cx="46" cy="199.75" r="14" fill="#0891b2"/>
+  <text x="46" y="204.25" font-size="11" font-weight="bold" font-family="Segoe UI,system-ui,sans-serif" fill="white" text-anchor="middle">2</text>
+  <rect x="74" y="259" width="534" height="74.5" rx="7" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2.5"/>
+  <text x="86" y="283.5" font-size="12.5" font-weight="bold" font-family="Segoe UI,system-ui,sans-serif" fill="#212529">Frame Extraction</text>
+  <text x="86" y="305.5" font-size="11.5" font-family="Segoe UI,system-ui,sans-serif" fill="#495057">Sample every 4th frame from 30 FPS → 7.5 FPS effective.</text>
+  <text x="86" y="321.5" font-size="11.5" font-family="Segoe UI,system-ui,sans-serif" fill="#495057">Decoded with OpenCV, saved as JPEG.</text>
+  <circle cx="46" cy="296.25" r="14" fill="#7c3aed"/>
+  <text x="46" y="300.75" font-size="11" font-weight="bold" font-family="Segoe UI,system-ui,sans-serif" fill="white" text-anchor="middle">3</text>
+  <rect x="74" y="347.5" width="534" height="90.5" rx="7" fill="#fffbeb" stroke="#b45309" stroke-width="2.5"/>
+  <text x="86" y="372" font-size="12.5" font-weight="bold" font-family="Segoe UI,system-ui,sans-serif" fill="#212529">Face Detection &amp; Cropping — MTCNN</text>
+  <text x="86" y="394" font-size="11.5" font-family="Segoe UI,system-ui,sans-serif" fill="#495057">MTCNN detects faces · IoU-based temporal tracking reuses bbox</text>
+  <text x="86" y="410" font-size="11.5" font-family="Segoe UI,system-ui,sans-serif" fill="#495057">across frames · 30% bbox expansion · Min 20 valid faces per</text>
+  <text x="86" y="426" font-size="11.5" font-family="Segoe UI,system-ui,sans-serif" fill="#495057">video. GPU used; auto-falls back to CPU if CUDA unavailable.</text>
+  <circle cx="46" cy="392.75" r="14" fill="#b45309"/>
+  <text x="46" y="397.25" font-size="11" font-weight="bold" font-family="Segoe UI,system-ui,sans-serif" fill="white" text-anchor="middle">4</text>
+  <rect x="74" y="452" width="534" height="74.5" rx="7" fill="#f0fdf4" stroke="#15803d" stroke-width="2.5"/>
+  <text x="86" y="476.5" font-size="12.5" font-weight="bold" font-family="Segoe UI,system-ui,sans-serif" fill="#212529">Manifest Generation</text>
+  <text x="86" y="498.5" font-size="11.5" font-family="Segoe UI,system-ui,sans-serif" fill="#495057">Each face crop indexed: video ID · frame path · label (0=Real,</text>
+  <text x="86" y="514.5" font-size="11.5" font-family="Segoe UI,system-ui,sans-serif" fill="#495057">1=Fake) · split tag. Saved as JSON for full reproducibility.</text>
+  <circle cx="46" cy="489.25" r="14" fill="#15803d"/>
+  <text x="46" y="493.75" font-size="11" font-weight="bold" font-family="Segoe UI,system-ui,sans-serif" fill="white" text-anchor="middle">5</text>
+  <line x1="46" y1="117.25" x2="46" y2="185.75" stroke="#ced4da" stroke-width="2"/>
+  <line x1="46" y1="213.75" x2="46" y2="282.25" stroke="#ced4da" stroke-width="2"/>
+  <line x1="46" y1="310.25" x2="46" y2="378.75" stroke="#ced4da" stroke-width="2"/>
+  <line x1="46" y1="406.75" x2="46" y2="475.25" stroke="#ced4da" stroke-width="2"/>
+  <text x="320" y="544.5" font-size="12" fill="#6c757d" font-family="Segoe UI,system-ui,sans-serif" text-anchor="middle">↓</text>
+  <rect x="152" y="550.5" width="336" height="22" rx="4" fill="#212529"/>
+  <text x="320" y="565.5" font-size="11" font-weight="bold" font-family="Segoe UI,system-ui,sans-serif" fill="white" text-anchor="middle">Face Crop Dataset · Train / Val / Test Manifests</text>
+</svg>

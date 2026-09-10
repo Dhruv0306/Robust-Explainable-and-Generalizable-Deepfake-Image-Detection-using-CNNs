@@ -53,4 +53,41 @@ This report documents the robustness evaluation of the CNN deepfake detectors tr
 - Statistical units were strictly maintained at the **video** level to prevent pseudo-replication.
 
 ---
+
+## 6. Output Artifacts & Directory Structure
+
+All experimental outputs from `core_experiment_117` are organized under:
+
+```
+data/output/robustness/core_experiment_117/
+├── config.json / config.txt          # Frozen experiment configuration snapshot
+├── master_summary.csv                 # 117 rows × 16 cols (all checkpoint-condition combinations)
+├── seed_summary.csv                   # Per-model mean ± SD across 3 seeds
+├── architecture_summary.csv           # Aggregated mean ± SD across all 9 checkpoints
+├── figures/
+│   ├── severity_response_jpeg.png
+│   ├── severity_response_resize.png
+│   ├── severity_response_brightness_dark.png
+│   └── severity_response_brightness_bright.png
+├── <model>_seed<seed>/                # 9 checkpoint-specific directories
+│   ├── clean/                         # Baseline frame/video predictions + metrics
+│   ├── jpeg/sev{1,2,3}/               # JPEG compression conditions
+│   ├── resize/sev{1,2,3}/             # Resolution scaling conditions
+│   ├── brightness_dark/sev{1,2,3}/    # Darkening conditions
+│   └── brightness_bright/sev{1,2,3}/  # Brightening conditions
+│   └── condition_summary.csv          # Per-checkpoint condition table
+└── visual_examples/                   # 20 candidate verification panels (4 per transformation × 5 categories)
+```
+
+Each condition directory contains:
+- `frame_predictions.csv` — 6,304 rows with full metadata (video_id, category, transformation, severity, prob_fake, pred_fake)
+- `video_predictions_mean.csv` / `median.csv` / `mode.csv` — Aggregated video predictions
+- `metrics.json` — Frame and video-level metrics (Accuracy, Precision, Recall, F1, ROC-AUC, Confusion Matrix) + per-category breakdown
+
+The report document itself is located at:
+```
+data/reports/approach-2-robustness-report.md
+```
+
+---
 *Report compiled automatically from `core_experiment_117` experimental artifacts.*

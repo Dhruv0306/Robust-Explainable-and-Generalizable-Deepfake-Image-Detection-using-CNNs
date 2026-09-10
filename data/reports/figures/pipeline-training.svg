@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="712.5" viewBox="0 0 640 712.5">
+  <!-- background -->
+  <rect width="640" height="712.5" rx="10" fill="white" stroke="#dee2e6" stroke-width="1"/>
+  <text x="320" y="48" font-size="13" font-weight="bold" font-family="Segoe UI,system-ui,sans-serif" fill="#495057" text-anchor="middle" letter-spacing="0.8">FIGURE 2 — TRAINING &amp; EVALUATION PIPELINE</text>
+  <rect x="74" y="66" width="534" height="74.5" rx="7" fill="#eff6ff" stroke="#2563eb" stroke-width="2.5"/>
+  <text x="86" y="90.5" font-size="12.5" font-weight="bold" font-family="Segoe UI,system-ui,sans-serif" fill="#212529">Input</text>
+  <text x="86" y="112.5" font-size="11.5" font-family="Segoe UI,system-ui,sans-serif" fill="#495057">Face Crop Dataset + Train / Val / Test Manifests from</text>
+  <text x="86" y="128.5" font-size="11.5" font-family="Segoe UI,system-ui,sans-serif" fill="#495057">pre-processing pipeline.</text>
+  <circle cx="46" cy="103.25" r="14" fill="#2563eb"/>
+  <text x="46" y="107.75" font-size="11" font-weight="bold" font-family="Segoe UI,system-ui,sans-serif" fill="white" text-anchor="middle">1</text>
+  <rect x="74" y="154.5" width="534" height="90.5" rx="7" fill="#ecfeff" stroke="#0891b2" stroke-width="2.5"/>
+  <text x="86" y="179" font-size="12.5" font-weight="bold" font-family="Segoe UI,system-ui,sans-serif" fill="#212529">Model Selection — 3 Backbones</text>
+  <text x="86" y="201" font-size="11.5" font-family="Segoe UI,system-ui,sans-serif" fill="#495057">ImageNet-pretrained via timm · single sigmoid output head · 3</text>
+  <text x="86" y="217" font-size="11.5" font-family="Segoe UI,system-ui,sans-serif" fill="#495057">architectures evaluated: Xception (299×299), EfficientNet-B0</text>
+  <text x="86" y="233" font-size="11.5" font-family="Segoe UI,system-ui,sans-serif" fill="#495057">(224×224), ResNet50 (224×224).</text>
+  <circle cx="46" cy="199.75" r="14" fill="#0891b2"/>
+  <text x="46" y="204.25" font-size="11" font-weight="bold" font-family="Segoe UI,system-ui,sans-serif" fill="white" text-anchor="middle">2</text>
+  <rect x="74" y="259" width="534" height="174.5" rx="7" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2.5"/>
+  <text x="86" y="283.5" font-size="12.5" font-weight="bold" font-family="Segoe UI,system-ui,sans-serif" fill="#212529">Training — 3 Seeds × 3 Models = 9 Runs</text>
+  <text x="86" y="305.5" font-size="11.5" font-family="Segoe UI,system-ui,sans-serif" fill="#495057">AdamW lr=1e-4 · BCEWithLogitsLoss + pos_weight · AMP on GPU /</text>
+  <text x="86" y="321.5" font-size="11.5" font-family="Segoe UI,system-ui,sans-serif" fill="#495057">FP32 on CPU · ReduceLROnPlateau patience=2 · Early stopping</text>
+  <text x="86" y="337.5" font-size="11.5" font-family="Segoe UI,system-ui,sans-serif" fill="#495057">patience=5 · Max 30 epochs · Seeds: 42, 123, 2024.</text>
+  <rect x="86" y="357.5" width="510" height="68" rx="5" fill="white" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5,3"/>
+  <text x="94" y="370.5" font-size="9.5" font-weight="bold" font-family="Segoe UI,system-ui,sans-serif" fill="#94a3b8" letter-spacing="0.5">EACH EPOCH</text>
+  <text x="94" y="383.5" font-size="10.5" font-family="Segoe UI,system-ui,sans-serif" fill="#475569">Forward → loss → backward · Validate on val set · Save</text>
+  <text x="94" y="399.5" font-size="10.5" font-family="Segoe UI,system-ui,sans-serif" fill="#475569">checkpoint_epoch_N.pth · Update best_checkpoint.pth if val</text>
+  <text x="94" y="415.5" font-size="10.5" font-family="Segoe UI,system-ui,sans-serif" fill="#475569">loss improves</text>
+  <circle cx="46" cy="346.25" r="14" fill="#7c3aed"/>
+  <text x="46" y="350.75" font-size="11" font-weight="bold" font-family="Segoe UI,system-ui,sans-serif" fill="white" text-anchor="middle">3</text>
+  <rect x="74" y="447.5" width="534" height="90.5" rx="7" fill="#fffbeb" stroke="#b45309" stroke-width="2.5"/>
+  <text x="86" y="472" font-size="12.5" font-weight="bold" font-family="Segoe UI,system-ui,sans-serif" fill="#212529">Inference &amp; Video-Level Aggregation</text>
+  <text x="86" y="494" font-size="11.5" font-family="Segoe UI,system-ui,sans-serif" fill="#495057">Load best_checkpoint.pth · Run frame-level inference →</text>
+  <text x="86" y="510" font-size="11.5" font-family="Segoe UI,system-ui,sans-serif" fill="#495057">probability ∈ [0,1] · Aggregate per video: Mean (primary),</text>
+  <text x="86" y="526" font-size="11.5" font-family="Segoe UI,system-ui,sans-serif" fill="#495057">Median, Mode → threshold 0.5 → Real / Fake.</text>
+  <circle cx="46" cy="492.75" r="14" fill="#b45309"/>
+  <text x="46" y="497.25" font-size="11" font-weight="bold" font-family="Segoe UI,system-ui,sans-serif" fill="white" text-anchor="middle">4</text>
+  <rect x="74" y="552" width="534" height="106.5" rx="7" fill="#f0fdf4" stroke="#15803d" stroke-width="2.5"/>
+  <text x="86" y="576.5" font-size="12.5" font-weight="bold" font-family="Segoe UI,system-ui,sans-serif" fill="#212529">Evaluation &amp; Results</text>
+  <text x="86" y="598.5" font-size="11.5" font-family="Segoe UI,system-ui,sans-serif" fill="#495057">Metrics: Accuracy · Precision · Recall · F1 · ROC-AUC ·</text>
+  <text x="86" y="614.5" font-size="11.5" font-family="Segoe UI,system-ui,sans-serif" fill="#495057">Per-manipulation breakdown (5 categories) · Plots: ROC,</text>
+  <text x="86" y="630.5" font-size="11.5" font-family="Segoe UI,system-ui,sans-serif" fill="#495057">confusion matrix, training loss, seed sensitivity, cross-model</text>
+  <text x="86" y="646.5" font-size="11.5" font-family="Segoe UI,system-ui,sans-serif" fill="#495057">analytics.</text>
+  <circle cx="46" cy="605.25" r="14" fill="#15803d"/>
+  <text x="46" y="609.75" font-size="11" font-weight="bold" font-family="Segoe UI,system-ui,sans-serif" fill="white" text-anchor="middle">5</text>
+  <line x1="46" y1="117.25" x2="46" y2="185.75" stroke="#ced4da" stroke-width="2"/>
+  <line x1="46" y1="213.75" x2="46" y2="332.25" stroke="#ced4da" stroke-width="2"/>
+  <line x1="46" y1="360.25" x2="46" y2="478.75" stroke="#ced4da" stroke-width="2"/>
+  <line x1="46" y1="506.75" x2="46" y2="591.25" stroke="#ced4da" stroke-width="2"/>
+  <text x="320" y="676.5" font-size="12" fill="#6c757d" font-family="Segoe UI,system-ui,sans-serif" text-anchor="middle">↓</text>
+  <rect x="191" y="682.5" width="258" height="22" rx="4" fill="#212529"/>
+  <text x="320" y="697.5" font-size="11" font-weight="bold" font-family="Segoe UI,system-ui,sans-serif" fill="white" text-anchor="middle">9 runs complete — 3 models × 3 seeds</text>
+</svg>

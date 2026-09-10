@@ -1,0 +1,119 @@
+{
+  "condition": {
+    "transformation": "jpeg",
+    "severity": 3,
+    "direction": "none",
+    "parameter_name": "quality",
+    "parameter_value": 20,
+    "condition_id": "jpeg_sev3_q20"
+  },
+  "total_frames": 6304,
+  "successful_frames": 6304,
+  "failed_frames": 0,
+  "frame_metrics": {
+    "accuracy": 0.25539340101522845,
+    "precision": 0.9924812030075187,
+    "recall": 0.053268765133171914,
+    "f1": 0.10111068556108771,
+    "roc_auc": 0.6713550310985934,
+    "confusion_matrix": [
+      [
+        1346,
+        2
+      ],
+      [
+        4692,
+        264
+      ]
+    ]
+  },
+  "video_metrics": {
+    "mean": {
+      "accuracy": 0.5,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "roc_auc": 0.736111111111111,
+      "confusion_matrix": [
+        [
+          12,
+          0
+        ],
+        [
+          12,
+          0
+        ]
+      ]
+    },
+    "median": {
+      "accuracy": 0.5,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "roc_auc": 0.7430555555555556,
+      "confusion_matrix": [
+        [
+          12,
+          0
+        ],
+        [
+          12,
+          0
+        ]
+      ]
+    },
+    "mode": {
+      "accuracy": 0.5,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "roc_auc": 0.5,
+      "confusion_matrix": [
+        [
+          12,
+          0
+        ],
+        [
+          12,
+          0
+        ]
+      ]
+    }
+  },
+  "per_category_metrics": {
+    "Original": {
+      "accuracy": 1.0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "roc_auc": NaN,
+      "confusion_matrix": [
+        [
+          12,
+          0
+        ],
+        [
+          0,
+          0
+        ]
+      ]
+    },
+    "Deepfakes": {
+      "accuracy": 0.0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "roc_auc": NaN,
+      "confusion_matrix": [
+        [
+          0,
+          0
+        ],
+        [
+          12,
+          0
+        ]
+      ]
+    }
+  }
+}

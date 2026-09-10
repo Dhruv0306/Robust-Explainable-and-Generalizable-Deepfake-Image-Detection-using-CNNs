@@ -1,0 +1,119 @@
+{
+  "condition": {
+    "transformation": "jpeg",
+    "severity": 1,
+    "direction": "none",
+    "parameter_name": "quality",
+    "parameter_value": 80,
+    "condition_id": "jpeg_sev1_q80"
+  },
+  "total_frames": 6304,
+  "successful_frames": 6304,
+  "failed_frames": 0,
+  "frame_metrics": {
+    "accuracy": 0.7760152284263959,
+    "precision": 0.9796968056307526,
+    "recall": 0.730225988700565,
+    "f1": 0.8367630057803468,
+    "roc_auc": 0.9504676763830311,
+    "confusion_matrix": [
+      [
+        1273,
+        75
+      ],
+      [
+        1337,
+        3619
+      ]
+    ]
+  },
+  "video_metrics": {
+    "mean": {
+      "accuracy": 0.875,
+      "precision": 1.0,
+      "recall": 0.75,
+      "f1": 0.8571428571428571,
+      "roc_auc": 0.9722222222222223,
+      "confusion_matrix": [
+        [
+          12,
+          0
+        ],
+        [
+          3,
+          9
+        ]
+      ]
+    },
+    "median": {
+      "accuracy": 0.875,
+      "precision": 1.0,
+      "recall": 0.75,
+      "f1": 0.8571428571428571,
+      "roc_auc": 0.9722222222222223,
+      "confusion_matrix": [
+        [
+          12,
+          0
+        ],
+        [
+          3,
+          9
+        ]
+      ]
+    },
+    "mode": {
+      "accuracy": 0.875,
+      "precision": 1.0,
+      "recall": 0.75,
+      "f1": 0.8571428571428571,
+      "roc_auc": 0.875,
+      "confusion_matrix": [
+        [
+          12,
+          0
+        ],
+        [
+          3,
+          9
+        ]
+      ]
+    }
+  },
+  "per_category_metrics": {
+    "Original": {
+      "accuracy": 1.0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "roc_auc": NaN,
+      "confusion_matrix": [
+        [
+          12,
+          0
+        ],
+        [
+          0,
+          0
+        ]
+      ]
+    },
+    "Deepfakes": {
+      "accuracy": 0.75,
+      "precision": 1.0,
+      "recall": 0.75,
+      "f1": 0.8571428571428571,
+      "roc_auc": NaN,
+      "confusion_matrix": [
+        [
+          0,
+          0
+        ],
+        [
+          3,
+          9
+        ]
+      ]
+    }
+  }
+}

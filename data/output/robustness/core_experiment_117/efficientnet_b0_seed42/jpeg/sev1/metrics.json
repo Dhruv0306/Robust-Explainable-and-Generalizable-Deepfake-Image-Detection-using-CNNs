@@ -1,0 +1,119 @@
+{
+  "condition": {
+    "transformation": "jpeg",
+    "severity": 1,
+    "direction": "none",
+    "parameter_name": "quality",
+    "parameter_value": 80,
+    "condition_id": "jpeg_sev1_q80"
+  },
+  "total_frames": 6304,
+  "successful_frames": 6304,
+  "failed_frames": 0,
+  "frame_metrics": {
+    "accuracy": 0.6751269035532995,
+    "precision": 0.9657270980140935,
+    "recall": 0.6083535108958837,
+    "f1": 0.7464718989848973,
+    "roc_auc": 0.8685184819288073,
+    "confusion_matrix": [
+      [
+        1241,
+        107
+      ],
+      [
+        1941,
+        3015
+      ]
+    ]
+  },
+  "video_metrics": {
+    "mean": {
+      "accuracy": 0.7916666666666666,
+      "precision": 0.8888888888888888,
+      "recall": 0.6666666666666666,
+      "f1": 0.7619047619047619,
+      "roc_auc": 0.8958333333333333,
+      "confusion_matrix": [
+        [
+          11,
+          1
+        ],
+        [
+          4,
+          8
+        ]
+      ]
+    },
+    "median": {
+      "accuracy": 0.7916666666666666,
+      "precision": 0.8888888888888888,
+      "recall": 0.6666666666666666,
+      "f1": 0.7619047619047619,
+      "roc_auc": 0.8888888888888888,
+      "confusion_matrix": [
+        [
+          11,
+          1
+        ],
+        [
+          4,
+          8
+        ]
+      ]
+    },
+    "mode": {
+      "accuracy": 0.7916666666666666,
+      "precision": 0.8888888888888888,
+      "recall": 0.6666666666666666,
+      "f1": 0.7619047619047619,
+      "roc_auc": 0.7916666666666666,
+      "confusion_matrix": [
+        [
+          11,
+          1
+        ],
+        [
+          4,
+          8
+        ]
+      ]
+    }
+  },
+  "per_category_metrics": {
+    "Original": {
+      "accuracy": 0.9166666666666666,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "roc_auc": NaN,
+      "confusion_matrix": [
+        [
+          11,
+          1
+        ],
+        [
+          0,
+          0
+        ]
+      ]
+    },
+    "Deepfakes": {
+      "accuracy": 0.6666666666666666,
+      "precision": 1.0,
+      "recall": 0.6666666666666666,
+      "f1": 0.8,
+      "roc_auc": NaN,
+      "confusion_matrix": [
+        [
+          0,
+          0
+        ],
+        [
+          4,
+          8
+        ]
+      ]
+    }
+  }
+}

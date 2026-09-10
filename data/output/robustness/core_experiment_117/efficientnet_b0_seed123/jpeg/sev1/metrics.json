@@ -1,0 +1,119 @@
+{
+  "condition": {
+    "transformation": "jpeg",
+    "severity": 1,
+    "direction": "none",
+    "parameter_name": "quality",
+    "parameter_value": 80,
+    "condition_id": "jpeg_sev1_q80"
+  },
+  "total_frames": 6304,
+  "successful_frames": 6304,
+  "failed_frames": 0,
+  "frame_metrics": {
+    "accuracy": 0.6210342639593909,
+    "precision": 0.9400068563592733,
+    "recall": 0.5532687651331719,
+    "f1": 0.6965578559634192,
+    "roc_auc": 0.8423217039921638,
+    "confusion_matrix": [
+      [
+        1173,
+        175
+      ],
+      [
+        2214,
+        2742
+      ]
+    ]
+  },
+  "video_metrics": {
+    "mean": {
+      "accuracy": 0.75,
+      "precision": 0.875,
+      "recall": 0.5833333333333334,
+      "f1": 0.7,
+      "roc_auc": 0.8819444444444444,
+      "confusion_matrix": [
+        [
+          11,
+          1
+        ],
+        [
+          5,
+          7
+        ]
+      ]
+    },
+    "median": {
+      "accuracy": 0.75,
+      "precision": 0.875,
+      "recall": 0.5833333333333334,
+      "f1": 0.7,
+      "roc_auc": 0.8888888888888888,
+      "confusion_matrix": [
+        [
+          11,
+          1
+        ],
+        [
+          5,
+          7
+        ]
+      ]
+    },
+    "mode": {
+      "accuracy": 0.75,
+      "precision": 0.875,
+      "recall": 0.5833333333333334,
+      "f1": 0.7,
+      "roc_auc": 0.7500000000000001,
+      "confusion_matrix": [
+        [
+          11,
+          1
+        ],
+        [
+          5,
+          7
+        ]
+      ]
+    }
+  },
+  "per_category_metrics": {
+    "Original": {
+      "accuracy": 0.9166666666666666,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "roc_auc": NaN,
+      "confusion_matrix": [
+        [
+          11,
+          1
+        ],
+        [
+          0,
+          0
+        ]
+      ]
+    },
+    "Deepfakes": {
+      "accuracy": 0.5833333333333334,
+      "precision": 1.0,
+      "recall": 0.5833333333333334,
+      "f1": 0.7368421052631579,
+      "roc_auc": NaN,
+      "confusion_matrix": [
+        [
+          0,
+          0
+        ],
+        [
+          5,
+          7
+        ]
+      ]
+    }
+  }
+}

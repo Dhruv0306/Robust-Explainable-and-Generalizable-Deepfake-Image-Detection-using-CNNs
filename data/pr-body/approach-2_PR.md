@@ -1,3 +1,5 @@
+# approach(robustness): Approach 2 - Robustness under image transformations
+
 ## 🔬 Research Approach / Phase Reference
 - [ ] **Approach 1 / Phase B:** CNN Baseline Detector
 - [x] **Approach 2 / Phase B:** Robustness under Image Transformations

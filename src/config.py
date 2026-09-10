@@ -18,6 +18,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 DATA_ROOT = PROJECT_ROOT / "data"
 DATASET_ROOT = DATA_ROOT / "datasets" / "FaceForensics++"
 OUTPUT_ROOT = DATA_ROOT / "output"
+ROBUSTNESS_ROOT = OUTPUT_ROOT / "robustness"
 CHECKPOINT_ROOT = DATA_ROOT / "checkpoints"
 
 # Raw video paths
@@ -104,3 +105,22 @@ def get_run_name(model_name: str) -> str:
     pc_name = socket.gethostname().replace(" ", "-")
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     return f"{model_name}_{pc_name}_{timestamp}"
+
+
+def get_robustness_run_name(prefix: str = "robustness") -> str:
+    """Generate robustness experiment directory name: robustness_<timestamp>"""
+    from datetime import datetime
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    return f"{prefix}_{timestamp}"
+
+
+# === Approach 2: Robustness Configuration ===
+from robustness_config import (
+    DEFAULT_ROBUSTNESS_CONFIG,
+    get_default_robustness_config,
+    validate_robustness_config,
+    get_enabled_conditions,
+    save_robustness_config,
+)
+
+ROBUSTNESS_CONFIG = DEFAULT_ROBUSTNESS_CONFIG

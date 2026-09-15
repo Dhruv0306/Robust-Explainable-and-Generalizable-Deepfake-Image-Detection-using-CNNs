@@ -368,7 +368,47 @@ Actual Real    11     0
 
 ---
 
-## 12. Conclusions
+## 12. Baseline Results Interpretation
+
+### 12.1 Which architecture performs best and how comparison is made
+
+Results are reported at two levels: **per-run** (individual seed) and **mean ± std across seeds** (primary comparison). Mean across seeds is the primary basis for architecture comparison because a single run can be unrepresentatively lucky or unlucky depending on initialisation (see §10).
+
+On mean performance across 3 seeds:
+
+| Architecture | Mean Acc | Mean ROC-AUC | Mean F1 | CV(Acc) |
+|---|---|---|---|---|
+| **ResNet50** | **0.944** | **0.991** | **0.943** | **2.5%** |
+| Xception | 0.958 | 0.975 | 0.959 | 4.3% |
+| EfficientNet-B0 | 0.875 | 0.949 | 0.868 | 4.8% |
+
+**ResNet50 is the best overall baseline architecture.** It achieves the highest mean ROC-AUC (0.991), the lowest seed variance (CV 2.5%), and strong F1. Xception achieves higher mean accuracy (0.958) but with wider variance — its perfect 1.0 at seed 2024 skews the mean upward. EfficientNet-B0 is consistently the weakest.
+
+### 12.2 Why Accuracy, F1, and ROC-AUC differ between architectures
+
+The three metrics capture different aspects of the classifier:
+
+- **Accuracy** counts overall correct predictions. On a test set with 6 Real and 18 Fake videos, one misclassified video changes accuracy by 1/24 ≈ 0.042 — the discrete steps visible in the results table. A model that classifies all videos as Fake would still score 0.75 accuracy, so accuracy alone is insufficient.
+
+- **F1-score** is the harmonic mean of Precision and Recall on the Fake class. It penalises both false positives (Real called Fake) and false negatives (Fake called Real). Models that favour high Precision at the cost of Recall, or vice versa, will show Accuracy and F1 diverge.
+
+- **ROC-AUC** measures ranking quality: does the model consistently assign higher probability to Fake videos than Real ones, regardless of the threshold? A model can have slightly lower Accuracy (one extra misclassification) but near-perfect ROC-AUC if its probability scores are well-ranked. ResNet50's AUC of 0.991 means it almost perfectly separates Real from Fake by score, even when its threshold-based accuracy is marginally below Xception's.
+
+The differences between architectures reflect their inductive biases. Xception's depthwise separable convolutions capture fine-grained local texture artifacts well but are more sensitive to initialisation. ResNet50's residual connections encourage the model to preserve general discriminative features from ImageNet pretraining while fine-tuning stably to the deepfake signal.
+
+### 12.3 What this baseline establishes for later approaches
+
+This baseline answers the question: *how well does a standard CNN perform on clean, unperturbed C23 data with a leakage-safe evaluation?* The answer — 94–96% mean accuracy, 0.95–0.99 ROC-AUC — provides three reference points for subsequent approaches:
+
+1. **Approach 2 (Robustness):** the clean-data baseline metrics are the ceiling from which degradation under JPEG compression, blur, and noise will be measured. Any drop in performance on transformed data is compared against these numbers.
+
+2. **Approach 3 (Explainability):** the trained ResNet50 (best stable backbone) will be the model subjected to Grad-CAM analysis. High baseline accuracy confirms the model has genuinely learned discriminative features, making explanation analysis meaningful.
+
+3. **Approach 4 (Generalizability):** the same baseline model will be evaluated on unseen manipulation types or datasets without retraining. The generalisation gap is the difference between these baseline numbers and the out-of-distribution performance.
+
+---
+
+## 13. Conclusions
 
 1. **All three architectures work well** on this clean C23 baseline. No architecture fails catastrophically.
 
@@ -384,7 +424,7 @@ Actual Real    11     0
 
 ---
 
-## 13. Reproducibility
+## 14. Reproducibility
 
 All runs used the same processed dataset, splits, and manifests. Configuration files (`config.json`, `config.txt`) and training histories (`history.json`) are stored in `data/output/<run_name>/`. Best checkpoints are mirrored in `data/checkpoints/<run_name>/`.
 

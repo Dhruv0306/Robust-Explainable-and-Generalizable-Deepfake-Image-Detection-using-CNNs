@@ -123,9 +123,61 @@ FaceForensics++ fake videos are named `targetID_sourceID.mp4`, recording which r
 
 ---
 
-## 5. Main Results: Video-Level Mean Aggregation
+## 5. CNN Training Design
 
-### 5.1 Per-Run Metrics
+### 5.1 Architecture choice and what is being trained
+
+This study does **not** develop a new CNN architecture. Three well-established ImageNet-pretrained backbones are loaded via the `timm` library and fine-tuned for binary deepfake detection:
+
+| Architecture | Why selected |
+|---|---|
+| **Xception** | Widely used deepfake detection baseline in the literature; depthwise separable convolutions capture fine-grained texture artifacts |
+| **EfficientNet-B0** | Lightweight, compound-scaled; establishes a compute-efficient reference point |
+| **ResNet50** | Standard residual architecture; strong ImageNet features with predictable fine-tuning behaviour |
+
+The final classification head of each pretrained model is replaced with a **single linear output unit** (no sigmoid — raw logit fed into `BCEWithLogitsLoss`). All layers are fine-tuned end-to-end; only the head architecture changes, not the backbone weights at initialisation.
+
+### 5.2 Data augmentation
+
+Augmentation is applied **only during training** (not validation or test) to improve generalisation and reduce overfitting to compression or orientation artifacts in the training frames.
+
+| Transform | Parameters | Rationale |
+|---|---|---|
+| Random horizontal flip | p = 0.5 | Face symmetry — flipping does not change Real/Fake label |
+| Gaussian blur | p = 0.1, kernel = 3, σ ∈ [0.1, 2.0] | Simulates mild blur from video compression or motion |
+| Resize | to model input size | Required: 299×299 (Xception), 224×224 (EfficientNet-B0, ResNet50) |
+| Normalize | ImageNet mean/std (0.485/0.456/0.406, 0.229/0.224/0.225) | Matches pretrained weight statistics |
+
+Augmentation is intentionally minimal — the goal of Approach 1 is a clean baseline. More aggressive augmentation is left to Approach 2 (robustness experiments).
+
+### 5.3 Training settings
+
+| Setting | Value |
+|---|---|
+| Optimizer | AdamW, lr = 1e-4, weight_decay = 1e-4 |
+| Loss | BCEWithLogitsLoss with pos_weight = 0.282 |
+| LR scheduler | ReduceLROnPlateau (factor = 0.1, patience = 2, monitor = val loss) |
+| Early stopping | Patience = 5 epochs (on val loss) |
+| Max epochs | 30 |
+| Batch size | 32 (GPU, 224px) / 16 (GPU, 299px) / 8 (CPU fallback) |
+| Precision | AMP (FP16 on GPU) / FP32 (CPU) |
+| Seeds | 42, 123, 2024 (3 independent runs per model) |
+
+### 5.4 What the random seed controls
+
+The seed is set before each run using `random.seed`, `numpy.random.seed`, `torch.manual_seed`, and `torch.cuda.manual_seed_all`, with `cudnn.deterministic = True`. This controls:
+
+- **Weight initialisation** of the replaced classification head
+- **DataLoader shuffle order** (which batches the model sees in which order each epoch)
+- **Augmentation stochasticity** (which frames get flipped or blurred)
+
+Running three seeds measures how sensitive the final metrics are to these random factors. A low coefficient of variation (CV) across seeds indicates a stable training procedure; a high CV indicates sensitivity to initialisation or data ordering.
+
+---
+
+## 6. Main Results: Video-Level Mean Aggregation
+
+### 6.1 Per-Run Metrics
 
 | Model | Seed | Accuracy | Precision | Recall | F1 | ROC-AUC |
 |-------|------|----------|-----------|--------|-----|---------|
@@ -139,7 +191,7 @@ FaceForensics++ fake videos are named `targetID_sourceID.mp4`, recording which r
 | ResNet50 | 123 | 0.9583 | 0.9231 | 1.0000 | 0.9600 | 0.9931 |
 | ResNet50 | 2024 | 0.9167 | 1.0000 | 0.8333 | 0.9091 | **1.0000** |
 
-### 5.2 Mean ± Std Across Seeds
+### 6.2 Mean ± Std Across Seeds
 
 | Model | Accuracy | Precision | Recall | F1 | ROC-AUC |
 |-------|----------|-----------|--------|-----|---------|
@@ -151,21 +203,21 @@ FaceForensics++ fake videos are named `targetID_sourceID.mp4`, recording which r
 
 ---
 
-### 5.3 Visual Analytics
+### 6.3 Visual Analytics
 
-### 5.3.1 Model Comparison: Accuracy and F1-Score
+### 6.3.1 Model Comparison: Accuracy and F1-Score
 
 ![Model Accuracy and F1-Score Comparison](figures/model_comparison_accuracy_f1.png)
 
 *Bar chart comparing mean Accuracy and F1-Score across backbones (averaged over 3 seeds). Error bars show ±1 standard deviation across seeds.*
 
-### 5.3.2 Model Comparison: ROC-AUC
+### 6.3.2 Model Comparison: ROC-AUC
 
 ![Model ROC-AUC Comparison](figures/model_comparison_roc_auc.png)
 
 *ResNet50 achieves the highest mean ROC-AUC (0.991) with the tightest variance. Xception reaches perfect 1.0 at seed 2024. EfficientNet-B0 is consistent but lower overall.*
 
-### 5.3.3 Seed Sensitivity Distribution
+### 6.3.3 Seed Sensitivity Distribution
 
 ![Seed Sensitivity Distribution](figures/seed_sensitivity_distribution.png)
 
@@ -173,9 +225,9 @@ FaceForensics++ fake videos are named `targetID_sourceID.mp4`, recording which r
 
 ---
 
-## 6. Aggregation Method Comparison (Video-Level)
+## 7. Aggregation Method Comparison (Video-Level)
 
-### 6.1 Mean vs Median vs Mode — Accuracy
+### 7.1 Mean vs Median vs Mode — Accuracy
 
 | Model | Seed | Mean Acc | Median Acc | Mode Acc |
 |-------|------|----------|------------|----------|
@@ -193,11 +245,11 @@ FaceForensics++ fake videos are named `targetID_sourceID.mp4`, recording which r
 
 ---
 
-## 7. Per-Manipulation Performance (Video-Level Mean)
+## 8. Per-Manipulation Performance (Video-Level Mean)
 
 Results shown for the best seed per model.
 
-### 6.1 Xception (Seed 2024 — Best)
+### 7.1 Xception (Seed 2024 — Best)
 
 | Category | Accuracy | F1 | Support |
 |----------|----------|-----|---------|
@@ -231,9 +283,9 @@ Results shown for the best seed per model.
 
 ---
 
-## 8. Training Dynamics
+## 9. Training Dynamics
 
-### 6.1 Best Epoch & Validation Loss
+### 7.1 Best Epoch & Validation Loss
 
 | Model | Seed | Best Epoch | Best Val Loss | Epochs Run |
 |-------|------|------------|---------------|------------|
@@ -251,7 +303,7 @@ Results shown for the best seed per model.
 
 ---
 
-## 9. Seed Sensitivity Analysis
+## 10. Seed Sensitivity Analysis
 
 | Model | Acc Range | F1 Range | AUC Range | CV(Acc) |
 |-------|-----------|----------|-----------|---------|
@@ -265,7 +317,7 @@ Results shown for the best seed per model.
 
 ---
 
-## 10. Confusion Matrices (Video-Level Mean, Best Seed per Model)
+## 11. Confusion Matrices (Video-Level Mean, Best Seed per Model)
 
 ### Xception (Seed 2024)
 ```
@@ -293,7 +345,7 @@ Actual Real    11     0
 
 ---
 
-## 11. Conclusions
+## 12. Conclusions
 
 1. **All three architectures work well** on this clean C23 baseline. No architecture fails catastrophically.
 
@@ -309,7 +361,7 @@ Actual Real    11     0
 
 ---
 
-## 12. Reproducibility
+## 13. Reproducibility
 
 All runs used the same processed dataset, splits, and manifests. Configuration files (`config.json`, `config.txt`) and training histories (`history.json`) are stored in `data/output/<run_name>/`. Best checkpoints are mirrored in `data/checkpoints/<run_name>/`.
 

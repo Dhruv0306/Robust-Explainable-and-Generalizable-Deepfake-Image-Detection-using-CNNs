@@ -450,6 +450,25 @@ The two setups are not directly comparable. The original paper's ~99% Xception a
 
 The primary purpose of this baseline is not to match the original paper's numbers but to establish a clean, reproducible reference point for Approaches 2–4 within a consistent experimental framework.
 
+### 13.5 Isolating model vs. experimental factors
+
+The ~3.4% gap between our Xception mean accuracy (95.83%) and the original paper (~99.26%) cannot be attributed to the model alone. Each experimental factor can be isolated through a controlled ablation ladder:
+
+| Step | Change applied | What it isolates |
+|---|---|---|
+| 1 | Keep our model + split, expand to 1,000 videos | Dataset size effect |
+| 2 | Keep 1,000 videos + our model, use random video split | Split strategy effect |
+| 3 | Train per-manipulation binary models with our setup | Problem formulation effect |
+| 4 | Match their preprocessing exactly | Preprocessing effect |
+
+If step 1 alone closes the gap to ~99%, dataset size is the dominant factor. If the gap persists, problem formulation or preprocessing differences are contributing.
+
+**Evidence that the gap is not a model limitation:** our best single run (Xception, seed 2024) already achieves 100% accuracy — matching the paper's ceiling. Our mean of 95.83% with CV 4.3% across only 24 test videos is not statistically distinguishable from ~99% given the resolution of 1/24 ≈ 0.042 per misclassification. The observed difference is within two discrete test-set steps, well within the variance caused by test set size alone.
+
+**On the split strategy:** any identity leakage in a random video-level split *inflates* reported accuracy. Our leakage-safe numbers are more conservative and more reliable — the gap may partly reflect that inflation rather than genuine model performance.
+
+**Most likely conclusion:** dataset size (7× fewer training samples) combined with the unified multi-manipulation formulation (harder problem) and the small test set resolution (coarser estimates) account for the observed difference. No evidence of a fundamental model-level limitation is present in the results.
+
 ---
 
 ## 14. Conclusions

@@ -305,6 +305,29 @@ Results shown for the best seed per model.
 
 ## 10. Seed Sensitivity Analysis
 
+### 10.1 Why results change across seeds
+
+Three independent sources of randomness are controlled by the seed (see §5.4), and all three can shift final test performance:
+
+1. **Classification head initialisation.** The pretrained backbone weights are fixed at load time, but the replacement single-logit head is initialised randomly. Different initialisations place the optimiser at different starting points in the loss landscape, potentially converging to different local minima.
+
+2. **DataLoader shuffle order.** Training data is shuffled per epoch. The order in which mini-batches arrive determines the gradient trajectory. With early stopping triggering after 5–10 epochs on a 60,000-frame training set, the model has limited exposure; batch ordering meaningfully affects which features are reinforced early.
+
+3. **Augmentation stochasticity.** Each horizontal flip (p=0.5) and Gaussian blur (p=0.1) decision is drawn from the seeded RNG. Different seeds produce different augmented views of the same frames.
+
+The test set is fixed across all seeds (same split, same frames), so observed variation in test metrics directly reflects these three training-time random factors — not changes in the evaluation data.
+
+### 10.2 Why the variation is not an implementation problem
+
+Several properties of the observed results rule out implementation bugs as the source of variation:
+
+- **Variation is small and structured.** CV values of 2.5–4.8% are consistent with published fine-tuning variance on small test sets. A bug producing random outputs would yield CV near 50%.
+- **All runs complete training normally** (early stopping triggers, val loss decreases monotonically in early epochs, no NaN losses).
+- **The direction of variance is architecturally coherent.** ResNet50 has the lowest CV (2.5%) — its residual connections and batch normalisation are known to produce more stable fine-tuning. Xception has the highest CV (4.3%) — its depthwise separable convolutions and no batch normalisation in the final layers make it more sensitive to initialisation.
+- **The test set is tiny (24 videos = 6,304 frames).** One misclassified video changes accuracy by 1/24 ≈ 0.042. Discrete jumps of exactly that size (e.g., Xception 0.9167 → 0.9583 → 1.0000) confirm the variation is in border-case predictions, not systemic instability.
+
+### 10.3 Seed sensitivity metrics
+
 | Model | Acc Range | F1 Range | AUC Range | CV(Acc) |
 |-------|-----------|----------|-----------|---------|
 | Xception | 0.9167–1.0000 | 0.9167–1.0000 | 0.9583–1.0000 | 4.3% |

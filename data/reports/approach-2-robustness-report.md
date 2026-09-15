@@ -159,7 +159,51 @@ Fair cross-architecture comparison is enforced through three experimental contro
 
 ---
 
-## 6. Architecture Robustness Summary
+## 6. Metrics, Evaluation & Degradation Analysis Framework
+
+### Which metrics are you using?
+Evaluation uses a tiered hierarchy of quantitative metrics:
+- **Primary Classification Metrics:** F1-score, ROC-AUC, Accuracy, Precision, Recall, and 2×2 Confusion Matrices. Evaluated at both frame level (6,304 frames) and video level (24 videos per condition).
+- **Performance Drop Deltas ($\Delta M$):** Absolute metric deltas relative to the clean reference ($\Delta\text{F1}$, $\Delta\text{ROC-AUC}$, $\Delta\text{Accuracy}$).
+- **Decision Stability & Confidence Metrics:** Video prediction flip rate ($P_{\text{flip}}$), continuous fake probability shift ($\Delta P_{\text{fake}}$), and paired error-state transition proportions.
+
+### Why F1-score?
+False positives (misclassifying authentic media as fake) and false negatives (failing to catch a deepfake) carry unequal real-world costs. In deepfake detection benchmarks, class distributions are often unbalanced. In the FaceForensics++ C23 test split, fake frames outnumber real frames (4,956 fake frames vs. 1,348 real frames across 5 categories). Under severe JPEG compression ($Q=20$), ResNet50 collapses to predicting `Real` for all 24 videos. Because 12 test videos are Real and 12 are Fake, accuracy remains 0.5000 (masking total failure as random chance). F1-score drops to **0.0000**, correctly identifying complete detector breakdown.
+
+### Why ROC-AUC?
+F1-score measures binary decision accuracy at a fixed operational threshold ($p=0.5$). ROC-AUC evaluates ranking and discrimination ability across all possible classification thresholds. Reporting ROC-AUC alongside F1 isolates whether performance loss stems from feature discrimination collapse (low ROC-AUC) or threshold miscalibration (high ROC-AUC but degraded F1 at $p=0.5$).
+
+### What is the performance drop?
+Performance drop ($\Delta M$) is defined as the absolute change in metric $M$ from the clean reference condition ($\text{Severity}=0$) to a corrupted condition ($\text{Severity}=k$):
+$$\Delta M = M_{\text{transformed}} - M_{\text{clean}}$$
+
+Negative deltas quantify degradation. For example, under JPEG $Q=20$, ResNet50 experiences $\Delta\text{F1} = -0.9430$ (dropping from 0.9430 to 0.0000), whereas under spatial downsampling to 25% scale ($s=0.25$), ResNet50 experiences $\Delta\text{F1} = -0.0696$ (dropping from 0.9430 to 0.8735).
+
+### How will you compare clean versus transformed performance?
+- **Paired Observations:** Each corrupted condition is compared directly against the same checkpoint's cached clean baseline across the exact same 24 test videos.
+- **Reporting Absolute and Delta Performance:** Both transformed performance ($M_{\text{transformed}}$) and degradation deltas ($\Delta M$) are reported together. A model with lower clean F1 that degrades slightly may still achieve lower absolute performance than a model with higher clean F1 that degrades more.
+- **Error-State Transitions:** Tracks video movement across four states:
+  - *Stable Correct:* Clean Correct $\to$ Transformed Correct
+  - *Robustness Failure:* Clean Correct $\to$ Transformed Incorrect
+  - *Transformation Correction:* Clean Incorrect $\to$ Transformed Correct
+  - *Persistent Error:* Clean Incorrect $\to$ Transformed Incorrect
+
+### Which architecture is most resistant to each transformation?
+From the architecture-level summary across all 9 checkpoints (Mean ± SD across 3 seeds):
+- **Spatial Resolution Downsampling ($s=0.25$):** **ResNet50** is most resistant, retaining F1 = $0.873 \pm 0.033$ ($\Delta\text{F1} = -0.070$), outperforming Xception (F1 = $0.855 \pm 0.045$) and EfficientNet-B0 (F1 = $0.736 \pm 0.092$).
+- **JPEG Compression ($Q=80$ and $Q=20$):** **ResNet50** retains highest F1 under mild compression $Q=80$ (F1 = $0.845 \pm 0.051$). Under severe compression ($Q=20$), **EfficientNet-B0** retains non-zero F1 ($0.430 \pm 0.155$), whereas ResNet50 collapses to $0.000 \pm 0.000$ and Xception drops to $0.095 \pm 0.042$.
+- **Darkening ($\alpha = 0.40$):** **Xception** is most resistant, retaining F1 = $0.824 \pm 0.055$ ($\Delta\text{F1} = -0.134$), outperforming EfficientNet-B0 (F1 = $0.776 \pm 0.088$) and ResNet50 (F1 = $0.649 \pm 0.078$).
+- **Brightening ($\alpha = 1.60$):** **Xception** is most resistant, retaining F1 = $0.762 \pm 0.062$ ($\Delta\text{F1} = -0.197$), outperforming ResNet50 (F1 = $0.691 \pm 0.084$) and EfficientNet-B0 (F1 = $0.689 \pm 0.112$).
+
+### Does the degradation depend on transformation type or severity?
+**Both.** Degradation depends strongly on transformation type and monotonically on severity level:
+- **Transformation Type:** High-frequency JPEG compression is far more destructive ($\Delta\text{F1} \approx -0.75$ across architectures at $Q=20$) than spatial resolution downsampling ($\Delta\text{F1} \approx -0.10$ at 25% scale). This proves that deepfake detectors rely heavily on fragile high-frequency DCT blending artifacts rather than resilient facial geometry.
+- **Severity Level:** Performance degrades monotonically as severity increases from 1 to 3 across all transformations. For JPEG on ResNet50: Clean (F1 = 0.943) $\to$ $Q=80$ (F1 = 0.845) $\to$ $Q=50$ (F1 = 0.500) $\to$ $Q=20$ (F1 = 0.000).
+- **Directional Illumination:** Severe brightening ($f=1.60$, average $\Delta\text{F1} \approx -0.24$) causes a steeper drop than severe darkening ($f=0.40$, average $\Delta\text{F1} \approx -0.17$) due to highlight pixel saturation.
+
+---
+
+## 7. Architecture Robustness Summary
 
 ### Architecture-Level Mean ± SD Performance Across Core Conditions
 
@@ -179,7 +223,7 @@ Fair cross-architecture comparison is enforced through three experimental contro
 | **Brightening** | 2 | f=1.40 | 0.757 ± 0.095 | 0.862 ± 0.044 | 0.910 ± 0.048 |
 | **Brightening** | 3 | f=1.60 | 0.689 ± 0.112 | 0.691 ± 0.084 | 0.762 ± 0.062 |
 
-## 7. Key Scientific Findings
+## 8. Key Scientific Findings
 
 1. **Extreme Sensitivity to High-Frequency Quantization (JPEG):**
    All architectures exhibit catastrophic F1 degradation under heavy JPEG compression ($Q=20$). This occurs because deepfake generation leaves subtle high-frequency blending boundaries and frequency spectrum anomalies in local DCT coefficients, which are entirely smoothed out at low quality factors.
@@ -190,7 +234,7 @@ Fair cross-architecture comparison is enforced through three experimental contro
 3. **Photometric Asymmetry:**
    Underexposure ($f=0.40$) reduces contrast and shadows, leading to moderate degradation. Severe overexposure ($f=1.60$) triggers severe pixel saturation, clipping high-light facial features and causing a sharper F1 collapse across all models.
 
-## 8. Methodological Safeguards & Reproducibility
+## 9. Methodological Safeguards & Reproducibility
 
 - Zero training or weight fine-tuning was performed under corrupted conditions.
 - Clean predictions were computed once per checkpoint, cached, and reused as the fixed baseline.
@@ -198,7 +242,7 @@ Fair cross-architecture comparison is enforced through three experimental contro
 
 ---
 
-## 9. Output Artifacts & Directory Structure
+## 10. Output Artifacts & Directory Structure
 
 All experimental outputs from `core_experiment_117` are organized under:
 

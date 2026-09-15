@@ -108,7 +108,58 @@ Earlier research planning listed seven candidate transformations. The core exper
 
 ---
 
-## 5. Architecture Robustness Summary
+## 5. Severity Levels & Degradation Dynamics
+
+### What does each severity level mean?
+The evaluation defines four distinct operational levels for every transformation:
+- **Severity 0 (Clean Reference):** The untouched face crop extracted during preprocessing. Serves as the ground-truth control condition.
+- **Severity 1 (Mild):** Subtle degradation representative of high-quality digital capture, minor re-compression, or clean web sharing. Imperceptible or barely noticeable to human inspection.
+- **Severity 2 (Moderate):** Clear visual degradation representative of standard social media platform re-encoding, mobile network transmission, or suboptimal ambient capture.
+- **Severity 3 (Strong):** Heavy visual distortion testing the operational boundary of the detectors. High-frequency textures are suppressed or pixel values are saturated, while high-level facial geometry remains visible.
+
+### Why use three severity levels?
+Three discrete severity points establish a four-anchor dose-response trajectory ($0 \to 1 \to 2 \to 3$). Two points (clean vs. corrupted) can only estimate a linear drop between two states, failing to detect non-linear tipping points, threshold collapses, or resilience plateaus. Conversely, evaluating five or ten levels across multiple corruptions and 9 checkpoints would multiply computational overhead without yielding distinct forensic insights. Three levels provide an efficient span from near-lossless transmission (Severity 1) to typical mobile sharing (Severity 2) and worst-case distribution shift (Severity 3).
+
+### What does JPEG quality 80, 50, and 20 mean?
+JPEG compression applies Discrete Cosine Transform (DCT) block coding followed by quantization:
+- **Quality 80 (Severity 1):** Mild quantization. High-frequency coefficients receive minor rounding, preserving sharp facial edges and subtle textural boundaries with no visible blockiness.
+- **Quality 50 (Severity 2):** Moderate quantization. Quantization step sizes double, zeroing out lower-amplitude high-frequency coefficients. Faint $8 \times 8$ pixel grid boundaries emerge upon magnification.
+- **Quality 20 (Severity 3):** Aggressive quantization. Most AC frequency coefficients are rounded to zero, leaving only low-frequency DC components. Coarse $8 \times 8$ blocking artifacts and ringing contours dominate, completely erasing high-frequency boundary seams and generative synthesis traces.
+
+### How are the resizing levels defined?
+Resizing evaluates sensitivity to pure spatial resolution loss while avoiding confounding model input dimensions:
+- **Severity 1 (Scale 0.75):** Downsamples spatial dimensions by 25% (e.g., $200 \times 200 \to 150 \times 150$), followed by bilinear upsampling back to original crop resolution.
+- **Severity 2 (Scale 0.50):** Halves spatial dimensions along both axes (reducing pixel area to 25%), followed by bilinear upsampling.
+- **Severity 3 (Scale 0.25):** Reduces spatial dimensions to a quarter (reducing pixel area to 6.25%), followed by bilinear upsampling.
+
+Because the transformed image is upsampled back to the original face crop resolution before model-specific input sizing ($224 \times 224$ or $299 \times 299$), the CNN receives its expected tensor dimensions while the image content suffers from genuine Nyquist bandwidth limitation.
+
+### How are the brightness levels defined?
+Brightness scaling modifies pixel intensities multiplicatively in float32 space, followed by range clipping to $[0, 255]$ and conversion to uint8:
+- **Darkening ($\alpha < 1.0$):**
+  - Severity 1 ($\alpha = 0.80$): 20% reduction in intensity, simulating minor underexposure or indoor ambient light.
+  - Severity 2 ($\alpha = 0.60$): 40% reduction, simulating shaded environments.
+  - Severity 3 ($\alpha = 0.40$): 60% reduction, simulating severe low-light conditions.
+- **Brightening ($\alpha > 1.0$):**
+  - Severity 1 ($\alpha = 1.20$): 20% increase in intensity, simulating bright ambient lighting.
+  - Severity 2 ($\alpha = 1.40$): 40% increase, simulating harsh directional lighting.
+  - Severity 3 ($\alpha = 1.60$): 60% increase, simulating direct sunlight or washed-out exposure where highlight pixels saturate at 255.
+
+### Why might performance not decrease linearly with severity?
+Performance degradation under corruption exhibits non-linear behavior due to three structural factors:
+1. **Classifier Decision Hyperplanes:** Neural networks map inputs to high-dimensional latent representations. Small corruptions may shift latent vectors without crossing the decision threshold (0.5), resulting in a flat plateau. Once perturbations push representations across the boundary, binary decisions flip abruptly.
+2. **Frequency Truncation Cliffs in JPEG:** As JPEG quality drops, quantization tables do not remove frequency bands continuously. Between $Q=50$ and $Q=20$, entire high-frequency DCT blocks are set to zero simultaneously, causing an abrupt drop from moderate accuracy to complete collapse ($F1 = 0.000$ on ResNet50).
+3. **Pixel Saturation Asymmetry in Brightening:** Darkening scales intensities downward smoothly without clipping (values stay above 0). Brightening, however, encounters a hard ceiling at 255. When multiple highlight pixels saturate at 255, local gradients and skin textures are flattened into uniform white patches, producing a steep non-linear drop at Severity 3 ($\Delta\text{F1} \approx -0.25$).
+
+### How will you compare the three CNN architectures under the same transformation?
+Fair cross-architecture comparison is enforced through three experimental controls:
+1. **Shared Corrupted Source Crops:** The corruption is applied to the extracted face crop *before* model-specific resizing. For any given frame and severity level, Xception ($299 \times 299$), EfficientNet-B0 ($224 \times 224$), and ResNet50 ($224 \times 224$) receive mathematically identical corrupted pixels.
+2. **Standardized Video-Level Aggregation:** All three architectures are evaluated on the exact same 24 test videos using primary mean probability aggregation with threshold 0.5.
+3. **Multi-Seed Aggregation (Mean ± SD across 3 seeds):** Each model is evaluated across seeds 42, 123, and 2024. Reporting mean and standard deviation ensures that comparisons reflect structural architectural properties (depth, residual connections, depthwise separable convolutions) rather than random weight initialization.
+
+---
+
+## 6. Architecture Robustness Summary
 
 ### Architecture-Level Mean ± SD Performance Across Core Conditions
 
@@ -128,7 +179,7 @@ Earlier research planning listed seven candidate transformations. The core exper
 | **Brightening** | 2 | f=1.40 | 0.757 ± 0.095 | 0.862 ± 0.044 | 0.910 ± 0.048 |
 | **Brightening** | 3 | f=1.60 | 0.689 ± 0.112 | 0.691 ± 0.084 | 0.762 ± 0.062 |
 
-## 6. Key Scientific Findings
+## 7. Key Scientific Findings
 
 1. **Extreme Sensitivity to High-Frequency Quantization (JPEG):**
    All architectures exhibit catastrophic F1 degradation under heavy JPEG compression ($Q=20$). This occurs because deepfake generation leaves subtle high-frequency blending boundaries and frequency spectrum anomalies in local DCT coefficients, which are entirely smoothed out at low quality factors.
@@ -139,7 +190,7 @@ Earlier research planning listed seven candidate transformations. The core exper
 3. **Photometric Asymmetry:**
    Underexposure ($f=0.40$) reduces contrast and shadows, leading to moderate degradation. Severe overexposure ($f=1.60$) triggers severe pixel saturation, clipping high-light facial features and causing a sharper F1 collapse across all models.
 
-## 7. Methodological Safeguards & Reproducibility
+## 8. Methodological Safeguards & Reproducibility
 
 - Zero training or weight fine-tuning was performed under corrupted conditions.
 - Clean predictions were computed once per checkpoint, cached, and reused as the fixed baseline.
@@ -147,7 +198,7 @@ Earlier research planning listed seven candidate transformations. The core exper
 
 ---
 
-## 8. Output Artifacts & Directory Structure
+## 9. Output Artifacts & Directory Structure
 
 All experimental outputs from `core_experiment_117` are organized under:
 

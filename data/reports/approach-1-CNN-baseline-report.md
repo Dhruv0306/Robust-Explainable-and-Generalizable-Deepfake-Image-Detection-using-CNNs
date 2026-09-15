@@ -78,7 +78,27 @@ pos_weight  = weight_fake / weight_real = 0.641 / 2.272 = 0.282
 
 ---
 
-## 3. Experimental Setup
+## 3. Preprocessing and Splitting Design Rationale
+
+### 3.1 Why videos are converted to frames
+
+CNNs operate on single images, not video sequences. Converting videos to frames produces the individual face-crop images the model is trained and evaluated on. Frame-level inference is then aggregated back to the video level at evaluation time (mean/median/mode over all frame predictions for a given video), which is the primary evaluation unit.
+
+### 3.2 Why 7.5 FPS (every 4th frame from 30 FPS)
+
+Consecutive frames in a video are highly redundant — adjacent frames at 30 FPS are nearly identical. Sampling every 4th frame (7.5 FPS effective) removes this redundancy while retaining sufficient temporal coverage per video. It also keeps preprocessing and training time feasible without sacrificing the number of distinct face appearances seen per video. The `min_usable_frames = 20` threshold ensures that any video with fewer than 20 usable face crops after sampling is discarded rather than included with insufficient evidence.
+
+### 3.3 Why videos are grouped before splitting
+
+FaceForensics++ fake videos are named `targetID_sourceID.mp4`, recording which real video was used as the target identity and which was used as the source (donor) identity. A single real person can therefore appear in the dataset in three roles simultaneously: as their own Original video, as the target of a fake (their face replaced by another), and as the source of a fake (their face used to replace another). If these related videos were placed in different splits, the model could encounter the same face identity in both training and test data.
+
+**Grouping prevents this leakage:** the relationship `targetID ↔ sourceID` is modelled as an undirected edge, and connected-component analysis on the full edge set finds all video IDs that share at least one face identity. The 130 real video IDs form **65 components of size 2**, meaning every real identity is paired with exactly one other real identity via at least one manipulation. Assigning entire components to a split guarantees that both members of every pair land in the same split. No face identity from the test set ever appears in training data, making the evaluation a genuine held-out test rather than a disguised re-test of seen identities.
+
+**What would happen without grouping:** if videos were split randomly at the video level, the same real face could appear as an Original in train and as a target in a test fake, or vice versa. The model could learn to recognise the identity rather than the manipulation, inflating test accuracy and producing misleading generalisation estimates.
+
+---
+
+## 4. Experimental Setup
 
 | Component | Configuration |
 |-----------|---------------|
@@ -103,9 +123,9 @@ pos_weight  = weight_fake / weight_real = 0.641 / 2.272 = 0.282
 
 ---
 
-## 4. Main Results: Video-Level Mean Aggregation
+## 5. Main Results: Video-Level Mean Aggregation
 
-### 4.1 Per-Run Metrics
+### 5.1 Per-Run Metrics
 
 | Model | Seed | Accuracy | Precision | Recall | F1 | ROC-AUC |
 |-------|------|----------|-----------|--------|-----|---------|
@@ -119,7 +139,7 @@ pos_weight  = weight_fake / weight_real = 0.641 / 2.272 = 0.282
 | ResNet50 | 123 | 0.9583 | 0.9231 | 1.0000 | 0.9600 | 0.9931 |
 | ResNet50 | 2024 | 0.9167 | 1.0000 | 0.8333 | 0.9091 | **1.0000** |
 
-### 4.2 Mean ± Std Across Seeds
+### 5.2 Mean ± Std Across Seeds
 
 | Model | Accuracy | Precision | Recall | F1 | ROC-AUC |
 |-------|----------|-----------|--------|-----|---------|
@@ -131,21 +151,21 @@ pos_weight  = weight_fake / weight_real = 0.641 / 2.272 = 0.282
 
 ---
 
-### 4.3 Visual Analytics
+### 5.3 Visual Analytics
 
-### 4.3.1 Model Comparison: Accuracy and F1-Score
+### 5.3.1 Model Comparison: Accuracy and F1-Score
 
 ![Model Accuracy and F1-Score Comparison](figures/model_comparison_accuracy_f1.png)
 
 *Bar chart comparing mean Accuracy and F1-Score across backbones (averaged over 3 seeds). Error bars show ±1 standard deviation across seeds.*
 
-### 4.3.2 Model Comparison: ROC-AUC
+### 5.3.2 Model Comparison: ROC-AUC
 
 ![Model ROC-AUC Comparison](figures/model_comparison_roc_auc.png)
 
 *ResNet50 achieves the highest mean ROC-AUC (0.991) with the tightest variance. Xception reaches perfect 1.0 at seed 2024. EfficientNet-B0 is consistent but lower overall.*
 
-### 4.3.3 Seed Sensitivity Distribution
+### 5.3.3 Seed Sensitivity Distribution
 
 ![Seed Sensitivity Distribution](figures/seed_sensitivity_distribution.png)
 
@@ -153,9 +173,9 @@ pos_weight  = weight_fake / weight_real = 0.641 / 2.272 = 0.282
 
 ---
 
-## 5. Aggregation Method Comparison (Video-Level)
+## 6. Aggregation Method Comparison (Video-Level)
 
-### 5.1 Mean vs Median vs Mode — Accuracy
+### 6.1 Mean vs Median vs Mode — Accuracy
 
 | Model | Seed | Mean Acc | Median Acc | Mode Acc |
 |-------|------|----------|------------|----------|
@@ -173,11 +193,11 @@ pos_weight  = weight_fake / weight_real = 0.641 / 2.272 = 0.282
 
 ---
 
-## 6. Per-Manipulation Performance (Video-Level Mean)
+## 7. Per-Manipulation Performance (Video-Level Mean)
 
 Results shown for the best seed per model.
 
-### 5.1 Xception (Seed 2024 — Best)
+### 6.1 Xception (Seed 2024 — Best)
 
 | Category | Accuracy | F1 | Support |
 |----------|----------|-----|---------|
@@ -211,7 +231,7 @@ Results shown for the best seed per model.
 
 ---
 
-## 7. Training Dynamics
+## 8. Training Dynamics
 
 ### 6.1 Best Epoch & Validation Loss
 
@@ -231,7 +251,7 @@ Results shown for the best seed per model.
 
 ---
 
-## 8. Seed Sensitivity Analysis
+## 9. Seed Sensitivity Analysis
 
 | Model | Acc Range | F1 Range | AUC Range | CV(Acc) |
 |-------|-----------|----------|-----------|---------|
@@ -245,7 +265,7 @@ Results shown for the best seed per model.
 
 ---
 
-## 9. Confusion Matrices (Video-Level Mean, Best Seed per Model)
+## 10. Confusion Matrices (Video-Level Mean, Best Seed per Model)
 
 ### Xception (Seed 2024)
 ```
@@ -273,7 +293,7 @@ Actual Real    11     0
 
 ---
 
-## 10. Conclusions
+## 11. Conclusions
 
 1. **All three architectures work well** on this clean C23 baseline. No architecture fails catastrophically.
 
@@ -289,7 +309,7 @@ Actual Real    11     0
 
 ---
 
-## 11. Reproducibility
+## 12. Reproducibility
 
 All runs used the same processed dataset, splits, and manifests. Configuration files (`config.json`, `config.txt`) and training histories (`history.json`) are stored in `data/output/<run_name>/`. Best checkpoints are mirrored in `data/checkpoints/<run_name>/`.
 

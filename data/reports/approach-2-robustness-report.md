@@ -4,7 +4,64 @@
 
 This report documents the robustness evaluation of the CNN deepfake detectors trained in Approach 1 (Xception, EfficientNet-B0, and ResNet50 across seeds 42, 123, and 2024) under controlled input-level image corruptions. The evaluation measures sensitivity to spatial resolution loss, JPEG compression artifacts, and bidirectional photometric brightness shifts. No model weights were retrained or modified.
 
-## 2. Experimental Setup and Matrix
+---
+
+## 2. Robustness Objective & Experimental Framing
+
+### What exactly are you trying to find out?
+The experiment measures the degradation rates, failure thresholds, confidence shifts ($\Delta P_{\text{fake}}$), and prediction flip rates ($P_{\text{flip}}$) of CNN deepfake detectors when face crops are subjected to controlled image corruptions. Specifically, the study investigates:
+- **Failure Thresholds:** At what severity level does each architecture fail or collapse to random guessing?
+- **Degradation Selectivity:** Which corruption mechanisms (frequency-domain quantization vs. spatial resolution loss vs. photometric amplitude scaling) cause the steepest performance drops?
+- **Class & Manipulation Sensitivity:** Are fake videos (false negatives) degraded faster than real videos (false positives), and do manipulation categories (Deepfakes, Face2Face, FaceSwap, NeuralTextures) show unequal vulnerability?
+- **Seed Variance:** Does training initialization seed affect zero-shot robustness under distribution shift?
+
+### If everyone knows performance decreases under degradation, what is the purpose of your experiment?
+While a qualitative drop in accuracy under image corruption is expected, qualitative intuition does not reveal the underlying failure dynamics or feature dependencies. The purpose of this quantitative experiment is to provide exact empirical measurements:
+- **Quantifying Non-Linear Collapse:** Measuring whether performance degrades gracefully or collapses abruptly. For example, ResNet50 maintains F1 = 0.873 under 25% spatial scaling, but collapses to F1 = 0.000 under JPEG quality $Q=20$ (predicting Real for every video).
+- **Exposing Feature Dependencies:** Distinguishing models that rely on high-frequency DCT blending artifacts (which disappear under JPEG compression) from models that leverage global facial structure.
+- **Directional Asymmetry:** Demonstrating that photometric overexposure ($f=1.60$, $\Delta\text{F1} \approx -0.25$) harms classification significantly more than equivalent underexposure ($f=0.40$, $\Delta\text{F1} \approx -0.15$) due to highlight pixel saturation.
+- **Architectural Profiling:** Providing baseline data comparing seed stability across Xception, EfficientNet-B0, and ResNet50.
+
+### Are you improving robustness or measuring robustness?
+**Measuring robustness.** Approach 2 is strictly an empirical measurement study. No model weights are retrained, fine-tuned, or adapted, and no corrupted images are used during training. Measuring baseline sensitivity on untouched checkpoints establishes an unconfounded reference before testing defense mechanisms (such as robustness augmentation or adversarial training) in future work.
+
+### What is your clean baseline?
+The clean baseline is the uncorrupted test set evaluation inherited directly from Approach 1:
+- **Test Population:** FaceForensics++ C23 test split containing 6,304 frames across 24 videos (12 Real, 12 Fake covering Original, Deepfakes, Face2Face, FaceSwap, NeuralTextures).
+- **Clean Baseline Metrics (Mean ± SD across seeds 42, 123, 2024):**
+  - **Xception:** F1 = 0.959 ± 0.042, ROC-AUC = 0.975 ± 0.022
+  - **ResNet50:** F1 = 0.943 ± 0.029, ROC-AUC = 0.991 ± 0.012
+  - **EfficientNet-B0:** F1 = 0.868 ± 0.049, ROC-AUC = 0.949 ± 0.024
+- **Clean Parity Gate & Caching:** Clean predictions for all 9 checkpoints were computed once, verified against Approach 1 outputs to 5 decimal places, and cached to disk under `<checkpoint>/clean/`. Transformed evaluations reuse this fixed reference to guarantee zero baseline drift across all 117 condition passes.
+
+### How do you quantify performance degradation?
+Performance degradation is measured at both video and frame levels using four complementary quantitative metrics:
+1. **Absolute Metric Deltas ($\Delta M$):**
+   Difference relative to the clean reference condition ($\text{Severity}=0$):
+   $$\Delta \text{F1} = \text{F1}_{\text{transformed}} - \text{F1}_{\text{clean}}$$
+   $$\Delta \text{ROC-AUC} = \text{ROC-AUC}_{\text{transformed}} - \text{ROC-AUC}_{\text{clean}}$$
+   $$\Delta \text{Accuracy} = \text{Accuracy}_{\text{transformed}} - \text{Accuracy}_{\text{clean}}$$
+   A negative delta quantifies performance loss.
+
+2. **Video Prediction Flip Rate ($P_{\text{flip}}$):**
+   Fraction of evaluated videos whose binary decision changes relative to clean input:
+   $$P_{\text{flip}} = \frac{\text{Count}(\hat{y}_{\text{transformed}} \neq \hat{y}_{\text{clean}})}{N_{\text{videos}}}$$
+
+3. **Continuous Confidence Shift ($\Delta P_{\text{fake}}$):**
+   Change in continuous sigmoid probability:
+   $$\Delta P_{\text{fake}} = P_{\text{fake, transformed}} - P_{\text{fake, clean}}$$
+   Measures confidence degradation even when binary predictions remain unchanged.
+
+4. **Error-State Transitions:**
+   Tracks paired video movements across four distinct states:
+   - *Stable Correct:* Clean Correct $\to$ Transformed Correct
+   - *Robustness Failure:* Clean Correct $\to$ Transformed Incorrect
+   - *Transformation Correction:* Clean Incorrect $\to$ Transformed Correct
+   - *Persistent Error:* Clean Incorrect $\to$ Transformed Incorrect
+
+---
+
+## 3. Experimental Setup and Matrix
 
 - **Dataset:** FaceForensics++ C23 test split (6,304 frames across 24 videos).
 - **Checkpoints:** 9 independent runs (3 architectures × 3 training seeds).
@@ -17,7 +74,7 @@ This report documents the robustness evaluation of the CNN deepfake detectors tr
 
 ---
 
-## 3. Transformation Selection Rationale
+## 4. Transformation Selection Rationale
 
 ### What transformations are being tested?
 The core experiment evaluates three distinct categories of controlled visual degradation across three severity levels:
@@ -51,7 +108,7 @@ Earlier research planning listed seven candidate transformations. The core exper
 
 ---
 
-## 4. Architecture Robustness Summary
+## 5. Architecture Robustness Summary
 
 ### Architecture-Level Mean ± SD Performance Across Core Conditions
 
@@ -71,7 +128,7 @@ Earlier research planning listed seven candidate transformations. The core exper
 | **Brightening** | 2 | f=1.40 | 0.757 ± 0.095 | 0.862 ± 0.044 | 0.910 ± 0.048 |
 | **Brightening** | 3 | f=1.60 | 0.689 ± 0.112 | 0.691 ± 0.084 | 0.762 ± 0.062 |
 
-## 5. Key Scientific Findings
+## 6. Key Scientific Findings
 
 1. **Extreme Sensitivity to High-Frequency Quantization (JPEG):**
    All architectures exhibit catastrophic F1 degradation under heavy JPEG compression ($Q=20$). This occurs because deepfake generation leaves subtle high-frequency blending boundaries and frequency spectrum anomalies in local DCT coefficients, which are entirely smoothed out at low quality factors.
@@ -82,7 +139,7 @@ Earlier research planning listed seven candidate transformations. The core exper
 3. **Photometric Asymmetry:**
    Underexposure ($f=0.40$) reduces contrast and shadows, leading to moderate degradation. Severe overexposure ($f=1.60$) triggers severe pixel saturation, clipping high-light facial features and causing a sharper F1 collapse across all models.
 
-## 6. Methodological Safeguards & Reproducibility
+## 7. Methodological Safeguards & Reproducibility
 
 - Zero training or weight fine-tuning was performed under corrupted conditions.
 - Clean predictions were computed once per checkpoint, cached, and reused as the fixed baseline.
@@ -90,7 +147,7 @@ Earlier research planning listed seven candidate transformations. The core exper
 
 ---
 
-## 7. Output Artifacts & Directory Structure
+## 8. Output Artifacts & Directory Structure
 
 All experimental outputs from `core_experiment_117` are organized under:
 

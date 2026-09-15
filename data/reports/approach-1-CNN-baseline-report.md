@@ -41,7 +41,7 @@ Each of the 5 categories has 130 videos, split consistently across all categorie
 | Test | 12 | 60 |
 | **Total** | **130** | **650** |
 
-The split is subject-level (relationship graph + connected components), ensuring the same real video IDs and their derived fake counterparts are always in the same split. There are 130 unique source/target video identities, split into groups of 100 / 18 / 12.
+The split is subject-level, built from a relationship graph where each fake video filename (`targetID_sourceID.mp4`) creates an edge between the target and source video IDs. Connected-component analysis on this graph yields **65 components of size 2** — each component is a pair of video identities that appear together in at least one fake video. These 65 components are shuffled (seed=42) and assigned to splits (100 / 18 / 12 video IDs). Because the unit of assignment is a component, no real identity or its paired source ever appears on both sides of a split boundary, preventing identity leakage.
 
 #### Frame (face crop) level — after MTCNN detection and 4th-frame sampling
 

@@ -15,7 +15,43 @@ This report documents the robustness evaluation of the CNN deepfake detectors tr
   - **Brightening:** Scaling factors $\alpha \in \{1.20, 1.40, 1.60\}$ (Severities 1–3).
 - **Total Evaluations:** 117 checkpoint-condition execution passes.
 
-## 3. Architecture Robustness Summary
+---
+
+## 3. Transformation Selection Rationale
+
+### What transformations are being tested?
+The core experiment evaluates three distinct categories of controlled visual degradation across three severity levels:
+1. **JPEG Compression:** Quality $Q \in \{80, 50, 20\}$ (high, medium, low quality).
+2. **Lower-Resolution Resizing:** Spatial scale $s \in \{0.75, 0.50, 0.25\}$ (downsampling followed by bilinear upsampling back to the original face crop dimensions).
+3. **Photometric Brightness Changes:** Evaluated bidirectionally as darkening ($\alpha \in \{0.80, 0.60, 0.40\}$) and brightening ($\alpha \in \{1.20, 1.40, 1.60\}$).
+
+Four additional transformations (Gaussian noise, Gaussian blur, contrast changes, and centered cropping) were implemented and verified in the transformation engine (`src/robustness.py`), but deferred to optional secondary experiments.
+
+### Why select JPEG compression?
+JPEG compression is the standard encoding format for digital photography, messaging platforms, and web content distribution. In deepfake forensics, JPEG compression presents a specific vulnerability: manipulation techniques introduce subtle high-frequency artifacts (blending seams, checkerboard patterns, and boundary discrepancies) that reside in high-frequency Discrete Cosine Transform (DCT) coefficients. Standard JPEG quantization tables penalize high-frequency coefficients aggressively to save bandwidth. Testing JPEG quality levels allows us to determine whether detector decisions rely on fragile high-frequency forensic cues or resilient semantic features.
+
+### Why select lower-resolution resizing?
+Images shared online or captured by lower-grade sensors routinely undergo downsampling, screen resizing, or thumbnail generation. In this setup, face crops are downsampled to a target fraction of their dimensions and then upsampled back to the original face crop resolution using bilinear interpolation before model-specific input sizing. This simulates spatial detail and Nyquist bandwidth loss while keeping the external tensor geometry constant, avoiding confounding resolution loss with model architecture input dimensions.
+
+### Why select brightness changes?
+Faces in realistic settings encounter variable illumination, harsh sunlight, indoor shadows, and auto-exposure shifts across capture devices. Furthermore, generative deepfakes often suffer from illumination mismatches between donor and target skin tones. Evaluating brightness bidirectionally (darkening vs. brightening) isolates whether detector predictions fail due to loss of contrast in shadows or loss of texture through pixel saturation in highlights.
+
+### Why reduce the number of transformations in the core experiment?
+Earlier research planning listed seven candidate transformations. The core experiment was focused on three operations (JPEG, resizing, brightness) for four specific reasons:
+1. **Orthogonal degradation axes:** JPEG tests frequency-domain quantization; resizing tests spatial resolution loss; brightness tests photometric amplitude shifts. This spans three distinct physical degradation mechanisms without redundancy.
+2. **Attribution and isolation:** Testing one transformation at a time isolates root causes of degradation. Adding overlapping filters (e.g., Gaussian blur alongside resolution downsampling, or Gaussian noise alongside JPEG) introduces confounding interactions while dramatically increasing evaluation overhead.
+3. **Evaluation matrix tractability:** With 9 checkpoints evaluated over 6,304 test frames, each transformation added across 3 severities requires 27 full-dataset inference passes. Restricting the core matrix to 13 conditions yields 117 runs (~82 minutes on GPU). Including all seven would require 225 evaluation passes without yielding fundamentally distinct degradation mechanisms.
+4. **Reproducibility and frozen parameters:** Concentrating on three core transformations enabled exact numerical anchor freezing, deterministic seed verification, and single-pass baseline caching.
+
+### Are the transformations applied during training or testing?
+**Testing only.** All transformations are applied strictly at evaluation time on the held-out test manifest frames. The model checkpoints evaluated here were trained purely on the clean training set from Approach 1. The goal of Approach 2 is to assess the intrinsic vulnerability and zero-shot robustness of the learned features when confronted with test-time distribution shift, rather than measuring data augmentation efficacy.
+
+### Is the CNN retrained after applying the transformations?
+**No.** No checkpoint is retrained, fine-tuned, adapted, or modified in any way. The exact weight checkpoints saved from Approach 1 (`best_checkpoint.pth`) are loaded in frozen evaluation mode (`model.eval()`, `torch.no_grad()`). If a model were retrained on corrupted images, the experiment would evaluate training-time data augmentation rather than the robustness of the detector itself.
+
+---
+
+## 4. Architecture Robustness Summary
 
 ### Architecture-Level Mean ± SD Performance Across Core Conditions
 
@@ -35,7 +71,7 @@ This report documents the robustness evaluation of the CNN deepfake detectors tr
 | **Brightening** | 2 | f=1.40 | 0.757 ± 0.095 | 0.862 ± 0.044 | 0.910 ± 0.048 |
 | **Brightening** | 3 | f=1.60 | 0.689 ± 0.112 | 0.691 ± 0.084 | 0.762 ± 0.062 |
 
-## 4. Key Scientific Findings
+## 5. Key Scientific Findings
 
 1. **Extreme Sensitivity to High-Frequency Quantization (JPEG):**
    All architectures exhibit catastrophic F1 degradation under heavy JPEG compression ($Q=20$). This occurs because deepfake generation leaves subtle high-frequency blending boundaries and frequency spectrum anomalies in local DCT coefficients, which are entirely smoothed out at low quality factors.
@@ -46,7 +82,7 @@ This report documents the robustness evaluation of the CNN deepfake detectors tr
 3. **Photometric Asymmetry:**
    Underexposure ($f=0.40$) reduces contrast and shadows, leading to moderate degradation. Severe overexposure ($f=1.60$) triggers severe pixel saturation, clipping high-light facial features and causing a sharper F1 collapse across all models.
 
-## 5. Methodological Safeguards & Reproducibility
+## 6. Methodological Safeguards & Reproducibility
 
 - Zero training or weight fine-tuning was performed under corrupted conditions.
 - Clean predictions were computed once per checkpoint, cached, and reused as the fixed baseline.
@@ -54,7 +90,7 @@ This report documents the robustness evaluation of the CNN deepfake detectors tr
 
 ---
 
-## 6. Output Artifacts & Directory Structure
+## 7. Output Artifacts & Directory Structure
 
 All experimental outputs from `core_experiment_117` are organized under:
 

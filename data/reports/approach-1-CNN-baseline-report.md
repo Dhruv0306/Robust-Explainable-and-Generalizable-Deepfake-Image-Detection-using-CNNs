@@ -32,14 +32,16 @@ Primary unit of evaluation is the **video** (with frame-level inference aggregat
 
 #### Video level
 
-| Split | Real videos | Fake videos | Total videos |
-|-------|-------------|-------------|-------------|
-| Train | 50 | 150 | 200 |
-| Val | 9 | 27 | 36 |
-| Test | 6 | 18 | 24 |
-| **Total** | **65** | **195** | **260** |
+Each of the 5 categories has 130 videos, split consistently across all categories:
 
-*Note: each Original (Real) video maps to 4 Fake videos (one per manipulation type), so the 1:4 video ratio is by construction.*
+| Split | Videos per category | Total videos (5 categories) |
+|-------|--------------------|-----------------------------|
+| Train | 100 | 500 |
+| Val | 18 | 90 |
+| Test | 12 | 60 |
+| **Total** | **130** | **650** |
+
+The split is subject-level (relationship graph + connected components), ensuring the same real video IDs and their derived fake counterparts are always in the same split. There are 130 unique source/target video identities, split into groups of 100 / 18 / 12.
 
 #### Frame (face crop) level — after MTCNN detection and 4th-frame sampling
 

@@ -8,7 +8,75 @@ This report presents the complete experimental results for Approach 1: a CNN bas
 
 ---
 
-## 2. Experimental Setup
+## 2. Dataset and Labels
+
+### 2.1 Categories and Binary Label Mapping
+
+FaceForensics++ C23 contains **650 videos** across five categories (130 videos each):
+
+| Category | Description | Binary Label |
+|----------|-------------|--------------|
+| **Original** | Unaltered real face videos | **Real (0)** |
+| **DeepFakes** | Identity-swap via autoencoder | **Fake (1)** |
+| **Face2Face** | Expression re-enactment | **Fake (1)** |
+| **FaceSwap** | Geometry-based face swap | **Fake (1)** |
+| **NeuralTextures** | Texture-only re-enactment | **Fake (1)** |
+
+**Real** means the video is an unmodified, genuine recording. **Fake** means the video has been manipulated by one of the four forgery methods — the specific technique is not used during training; the model only sees the binary distinction.
+
+The four Fake categories are collapsed into a single Fake class, making this a binary classification problem: Real vs Fake.
+
+### 2.2 Sample Counts
+
+Primary unit of evaluation is the **video** (with frame-level inference aggregated per video). Frame-level face crops are the unit of training.
+
+#### Video level
+
+| Split | Real videos | Fake videos | Total videos |
+|-------|-------------|-------------|-------------|
+| Train | 50 | 150 | 200 |
+| Val | 9 | 27 | 36 |
+| Test | 6 | 18 | 24 |
+| **Total** | **65** | **195** | **260** |
+
+*Note: each Original (Real) video maps to 4 Fake videos (one per manipulation type), so the 1:4 video ratio is by construction.*
+
+#### Frame (face crop) level — after MTCNN detection and 4th-frame sampling
+
+| Split | Real frames | Fake frames | Total frames |
+|-------|-------------|-------------|-------------|
+| Train | 13,247 | 46,950 | 60,197 |
+| Val | 2,515 | 8,894 | 11,409 |
+| Test | 1,348 | 4,956 | 6,304 |
+| **Total** | **17,110** | **60,800** | **77,910** |
+
+Category breakdown (all splits combined):
+
+| Category | Frames |
+|----------|--------|
+| Original | 17,110 |
+| DeepFakes | 17,110 |
+| Face2Face | 17,110 |
+| FaceSwap | 13,290 |
+| NeuralTextures | 13,290 |
+
+### 2.3 Class Imbalance and Handling
+
+The Real:Fake ratio is **1 : 3.55** at the frame level (17,110 Real vs 60,800 Fake), reflecting the 1:4 video-level construction.
+
+**Handling:** `BCEWithLogitsLoss` is used with a computed `pos_weight` that down-weights the majority Fake class and up-weights the minority Real class. Class weights are computed from the training split only (no leakage from val/test):
+
+```
+weight_real = total_train / (2 × n_real_train) = 60,197 / (2 × 13,247) = 2.272
+weight_fake = total_train / (2 × n_fake_train) = 60,197 / (2 × 46,950) = 0.641
+pos_weight  = weight_fake / weight_real = 0.641 / 2.272 = 0.282
+```
+
+`pos_weight = 0.282` tells `BCEWithLogitsLoss` to scale the gradient contribution of Fake (positive) samples down relative to Real samples, compensating for the 4:1 imbalance. This prevents the model from trivially predicting Fake for all inputs.
+
+---
+
+## 3. Experimental Setup
 
 | Component | Configuration |
 |-----------|---------------|
@@ -33,9 +101,9 @@ This report presents the complete experimental results for Approach 1: a CNN bas
 
 ---
 
-## 3. Main Results: Video-Level Mean Aggregation
+## 4. Main Results: Video-Level Mean Aggregation
 
-### 3.1 Per-Run Metrics
+### 4.1 Per-Run Metrics
 
 | Model | Seed | Accuracy | Precision | Recall | F1 | ROC-AUC |
 |-------|------|----------|-----------|--------|-----|---------|
@@ -49,7 +117,7 @@ This report presents the complete experimental results for Approach 1: a CNN bas
 | ResNet50 | 123 | 0.9583 | 0.9231 | 1.0000 | 0.9600 | 0.9931 |
 | ResNet50 | 2024 | 0.9167 | 1.0000 | 0.8333 | 0.9091 | **1.0000** |
 
-### 3.2 Mean ± Std Across Seeds
+### 4.2 Mean ± Std Across Seeds
 
 | Model | Accuracy | Precision | Recall | F1 | ROC-AUC |
 |-------|----------|-----------|--------|-----|---------|
@@ -61,21 +129,21 @@ This report presents the complete experimental results for Approach 1: a CNN bas
 
 ---
 
-## 3.3 Visual Analytics
+### 4.3 Visual Analytics
 
-### 3.3.1 Model Comparison: Accuracy and F1-Score
+### 4.3.1 Model Comparison: Accuracy and F1-Score
 
 ![Model Accuracy and F1-Score Comparison](figures/model_comparison_accuracy_f1.png)
 
 *Bar chart comparing mean Accuracy and F1-Score across backbones (averaged over 3 seeds). Error bars show ±1 standard deviation across seeds.*
 
-### 3.3.2 Model Comparison: ROC-AUC
+### 4.3.2 Model Comparison: ROC-AUC
 
 ![Model ROC-AUC Comparison](figures/model_comparison_roc_auc.png)
 
 *ResNet50 achieves the highest mean ROC-AUC (0.991) with the tightest variance. Xception reaches perfect 1.0 at seed 2024. EfficientNet-B0 is consistent but lower overall.*
 
-### 3.3.3 Seed Sensitivity Distribution
+### 4.3.3 Seed Sensitivity Distribution
 
 ![Seed Sensitivity Distribution](figures/seed_sensitivity_distribution.png)
 
@@ -83,9 +151,9 @@ This report presents the complete experimental results for Approach 1: a CNN bas
 
 ---
 
-## 4. Aggregation Method Comparison (Video-Level)
+## 5. Aggregation Method Comparison (Video-Level)
 
-### 4.1 Mean vs Median vs Mode — Accuracy
+### 5.1 Mean vs Median vs Mode — Accuracy
 
 | Model | Seed | Mean Acc | Median Acc | Mode Acc |
 |-------|------|----------|------------|----------|
@@ -103,7 +171,7 @@ This report presents the complete experimental results for Approach 1: a CNN bas
 
 ---
 
-## 5. Per-Manipulation Performance (Video-Level Mean)
+## 6. Per-Manipulation Performance (Video-Level Mean)
 
 Results shown for the best seed per model.
 
@@ -141,7 +209,7 @@ Results shown for the best seed per model.
 
 ---
 
-## 6. Training Dynamics
+## 7. Training Dynamics
 
 ### 6.1 Best Epoch & Validation Loss
 
@@ -161,7 +229,7 @@ Results shown for the best seed per model.
 
 ---
 
-## 7. Seed Sensitivity Analysis
+## 8. Seed Sensitivity Analysis
 
 | Model | Acc Range | F1 Range | AUC Range | CV(Acc) |
 |-------|-----------|----------|-----------|---------|
@@ -175,7 +243,7 @@ Results shown for the best seed per model.
 
 ---
 
-## 8. Confusion Matrices (Video-Level Mean, Best Seed per Model)
+## 9. Confusion Matrices (Video-Level Mean, Best Seed per Model)
 
 ### Xception (Seed 2024)
 ```
@@ -203,7 +271,7 @@ Actual Real    11     0
 
 ---
 
-## 9. Conclusions
+## 10. Conclusions
 
 1. **All three architectures work well** on this clean C23 baseline. No architecture fails catastrophically.
 
@@ -219,7 +287,7 @@ Actual Real    11     0
 
 ---
 
-## 10. Reproducibility
+## 11. Reproducibility
 
 All runs used the same processed dataset, splits, and manifests. Configuration files (`config.json`, `config.txt`) and training histories (`history.json`) are stored in `data/output/<run_name>/`. Best checkpoints are mirrored in `data/checkpoints/<run_name>/`.
 

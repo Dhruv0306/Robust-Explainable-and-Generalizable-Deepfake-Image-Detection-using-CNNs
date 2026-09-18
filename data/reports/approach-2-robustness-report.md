@@ -283,20 +283,40 @@ The extension answers three diagnostic questions:
 - Do CNN architectures fail on the same videos under the same corruption, or do their failure sets differ?
 - Does transformation sensitivity vary by manipulation category when each category is treated as 12 paired video observations?
 
+### Novelty A: confidence-to-decision stability
+
+The unit of analysis is the video-level mean fake probability. Confidence drift is computed as:
+
+$$\Delta P_{fake}=P_{fake}^{transformed}-P_{fake}^{clean}$$
+
+Fake and Real videos are reported separately because the same sign has different interpretations by class. Prediction flip rates and four error transitions (stable correct, robustness failure, transformation correction, persistent error) are reported alongside confidence drift. The JPEG panel is an example condition, not an aggregate over every transformation.
+
+### Novelty B: cross-architecture failure agreement
+
+A robustness failure is defined as clean-correct to transformed-incorrect. For each architecture pair, failure-set Jaccard is computed independently for each seed and then summarized as mean ± SD across seeds. When both failure sets are empty, Jaccard is defined as 1.0, representing agreement on the absence of failures. Prediction disagreement and 0/1/2/3-architecture failure consensus are separate measures.
+
+### Novelty C: manipulation-specific vulnerability
+
+This analysis uses a one-vs-Original formulation, not a five-class multiclass F1. For each fake category, that category is the positive class and Original videos are the negative class:
+
+$$F1=\frac{2TP}{2TP+FP+FN}$$
+
+Here, TP and FN come from the selected manipulation category, while FP comes from Original videos predicted as Fake under the same model, seed, and condition. The primary heatmaps contain the four fake categories only; Original has no positive examples for a positive-class F1. Each category contributes 12 unique videos in this test population. The same videos are evaluated across architectures and seeds, so category results are descriptive sensitivity patterns rather than independent-sample evidence.
+
 These results are descriptive sensitivity analyses. The small number of independent videos per category limits broad statistical claims.
 
 ## 10. Key Scientific Findings
 
 1. **Extreme Sensitivity to High-Frequency Quantization (JPEG):**
-   All architectures exhibit catastrophic F1 degradation under heavy JPEG compression ($Q=20$). This occurs because deepfake generation leaves subtle high-frequency blending boundaries and frequency spectrum anomalies in local DCT coefficients, which are entirely smoothed out at low quality factors.
+   All architectures exhibit catastrophic F1 degradation under heavy JPEG compression ($Q=20$). This is an observed performance pattern; the experiment does not independently identify the internal feature responsible.
 
 2. **Robustness to Spatial Resolution Loss:**
-   Pure resolution downsampling ($s=0.25$) results in significantly lower performance degradation than severe JPEG compression of equivalent visual noise. Coarse facial geometry and global structural features remain largely preserved for neural feature extractors.
+   Pure resolution downsampling ($s=0.25$) results in significantly lower measured degradation than severe JPEG compression in this test population. This is an empirical comparison, not proof that a particular semantic feature is preserved.
 
 3. **Photometric Asymmetry:**
-   Underexposure ($f=0.40$) reduces contrast and shadows, leading to moderate degradation. Severe overexposure ($f=1.60$) triggers severe pixel saturation, clipping high-light facial features and causing a sharper F1 collapse across all models.
+   Underexposure ($f=0.40$) and overexposure ($f=1.60$) produce different measured degradation. The stronger overexposure effect is consistent with highlight clipping, but clipping was not isolated as a causal variable.
 
-## 10. Methodological Safeguards & Reproducibility
+## 11. Methodological Safeguards & Reproducibility
 
 - Zero training or weight fine-tuning was performed under corrupted conditions.
 - Clean predictions were computed once per checkpoint, cached, and reused as the fixed baseline.
@@ -304,7 +324,7 @@ These results are descriptive sensitivity analyses. The small number of independ
 
 ---
 
-## 11. Output Artifacts & Directory Structure
+## 13. Output Artifacts & Directory Structure
 
 All experimental outputs from `core_experiment_117` are organized under:
 

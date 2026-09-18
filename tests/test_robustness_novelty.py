@@ -25,6 +25,7 @@ from robustness_novelty import (
     compute_confidence_decision_analysis,
     compute_pairwise_architecture_failure_agreement,
     compute_manipulation_vulnerability,
+    compute_one_vs_original_metrics,
     audit_novelty_artifacts,
     run_novelty_pipeline,
 )
@@ -92,6 +93,12 @@ class TestRobustnessNovelty(unittest.TestCase):
         self.assertTrue((clean_flips["flip_rate"] == 0.0).all())
         self.assertTrue((clean_flips["flip_count"] == 0).all())
 
+        clean_conf = conf_df[conf_df["severity"] == 0]
+        self.assertTrue((clean_conf["overall_mean_delta_p"] == 0.0).all())
+        self.assertTrue((clean_conf["overall_mean_abs_delta_p"] == 0.0).all())
+        self.assertTrue((clean_conf["real_mean_delta_p"] == 0.0).all())
+        self.assertTrue((clean_conf["fake_mean_delta_p"] == 0.0).all())
+
         # Verify error transitions sum to total videos (24) per condition
         error_df["total_check"] = (
             error_df["stable_correct"]
@@ -145,6 +152,43 @@ class TestRobustnessNovelty(unittest.TestCase):
         conf_df, flip_df, error_df = compute_confidence_decision_analysis(self.video_df)
         self.assertTrue((flip_df["total_videos"] == 24).all())
         self.assertTrue((error_df["total_evals"] == 24).all())
+
+    def test_synthetic_f1_vs_recall_regression(self):
+        """Regression test ensuring positive-class F1 correctly incorporates false positives."""
+        fake_preds = pd.Series([1, 1, 0, 0])
+        original_preds = pd.Series([0, 0, 0, 0])
+        res_no_fp = compute_one_vs_original_metrics(fake_preds, original_preds)
+        self.assertAlmostEqual(res_no_fp["recall"], 0.5, places=4)
+        self.assertAlmostEqual(res_no_fp["f1"], 2 * 2 / (2 * 2 + 0 + 2), places=4)  # 4/6 = 0.6667
+        self.assertNotEqual(res_no_fp["recall"], res_no_fp["f1"])
+
+        # When FP > 0, F1 is strictly smaller than the no-FP case (4/7 < 4/6)
+        original_preds_with_fp = pd.Series([1, 0, 0, 0])
+        res_with_fp = compute_one_vs_original_metrics(fake_preds, original_preds_with_fp)
+        self.assertAlmostEqual(res_with_fp["recall"], 0.5, places=4)
+        self.assertAlmostEqual(res_with_fp["f1"], 2 * 2 / (2 * 2 + 1 + 2), places=4)  # 4/7 = 0.5714
+        self.assertLess(res_with_fp["f1"], res_no_fp["f1"])
+
+    def test_category_mapping_and_uniqueness(self):
+        """
+        Verify the intended mapping structure:
+        - 12 Original videos -> 1 category record ('Original')
+        - 12 Fake videos -> 4 category records (Deepfakes, Face2Face, FaceSwap, NeuralTextures)
+        - Total 60 unique (video_id, category) pairs
+        - Composite prediction key is strictly unique per checkpoint condition
+        """
+        clean_cat = self.cat_video_df[self.cat_video_df["severity"] == 0]
+        unique_pairs = clean_cat[["video_id", "category"]].drop_duplicates()
+        self.assertEqual(len(unique_pairs), 60)
+
+        # Check multiplicity per video_id
+        vid_to_cats = unique_pairs.groupby("video_id")["category"].nunique()
+        self.assertEqual((vid_to_cats == 1).sum(), 12)  # 12 real videos have 1 category
+        self.assertEqual((vid_to_cats == 4).sum(), 12)  # 12 fake videos have 4 categories
+
+        # Composite prediction key uniqueness across all 7,020 rows
+        key_cols = ["model", "seed", "transformation", "severity", "direction", "parameter_name", "parameter_value", "video_id", "category"]
+        self.assertFalse(self.cat_video_df.duplicated(subset=key_cols).any(), "Duplicate category prediction key detected")
 
     def test_novelty_c_manipulation_vulnerability(self):
         """Verify manipulation vulnerability calculations and exact N=12 accounting."""

@@ -420,6 +420,20 @@ def compute_pairwise_architecture_failure_agreement(
 # Novelty C: Transformation x Manipulation Vulnerability
 # -----------------------------------------------------------------------------
 
+def compute_one_vs_original_metrics(
+    fake_predictions: pd.Series,
+    original_predictions: pd.Series,
+) -> Dict[str, float]:
+    """Compute one-vs-Original fake-category recall and F1."""
+    tp = int((fake_predictions == 1).sum())
+    fn = int((fake_predictions == 0).sum())
+    fp = int((original_predictions == 1).sum())
+    recall = tp / (tp + fn) if (tp + fn) else 0.0
+    f1_denominator = 2 * tp + fp + fn
+    f1 = 2 * tp / f1_denominator if f1_denominator else 0.0
+    return {"f1": f1, "recall": recall}
+
+
 def compute_manipulation_vulnerability(
     cat_video_df: pd.DataFrame,
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
@@ -445,27 +459,24 @@ def compute_manipulation_vulnerability(
         n_vids = len(grp)
 
         # Category groups contain one ground-truth class. Fake-category F1 is
-        # still computed against all 24 videos so false positives contribute.
+        # computed against Original videos so false positives contribute.
         if cat == "Original":
-            # Retain class-specific true-negative recall for supporting analysis.
             recall = (y_pred == 0).sum() / len(y_pred) if len(y_pred) > 0 else 0.0
             f1 = np.nan  # positive-class F1 is undefined for an all-Real subset
         else:
-            recall = (y_pred == 1).sum() / len(y_pred) if len(y_pred) > 0 else 0.0
-            # The category's videos are the positive class; FP comes from all
-            # Original videos in the same model/seed/condition.
             real_grp = cat_video_df[
                 (cat_video_df["model"] == model)
                 & (cat_video_df["seed"] == seed)
                 & (cat_video_df["transformation"] == t_name)
                 & (cat_video_df["severity"] == sev)
+                & (cat_video_df["direction"] == direct)
+                & (cat_video_df["parameter_name"] == p_name)
+                & (cat_video_df["parameter_value"].eq(p_val) | (cat_video_df["parameter_value"].isna() & pd.isna(p_val)))
                 & (cat_video_df["category"] == "Original")
             ]
-            tp = int((y_pred == 1).sum())
-            fn = int((y_pred == 0).sum())
-            fp = int((real_grp["pred_fake"] == 1).sum())
-            denom = 2 * tp + fp + fn
-            f1 = (2 * tp / denom) if denom else 0.0
+            metrics = compute_one_vs_original_metrics(grp["pred_fake"], real_grp["pred_fake"])
+            f1 = metrics["f1"]
+            recall = metrics["recall"]
 
         records.append({
             "model": model,
@@ -533,6 +544,7 @@ def generate_novelty_heatmaps_and_plots(
     conf_summary_df: pd.DataFrame,
     flip_summary_df: pd.DataFrame,
     figures_dir: Path,
+    category_counts: Optional[Dict[str, int]] = None,
 ) -> List[Path]:
     """
     Generate clean, publication-ready figures using diverging colormaps centered at 0.
@@ -553,12 +565,13 @@ def generate_novelty_heatmaps_and_plots(
     ax.set_xticklabels([col.replace("_", " ").title() for col in f1_delta_piv.columns], fontsize=10)
     ax.set_yticklabels(f1_delta_piv.index, fontsize=10)
 
-    # Annotate with Delta F1 and the exact unique-video count for each category.
-    # The category input is defined as 12 unique videos in this test population.
+    # Annotate with Delta F1 and the unique-video count derived from metadata.
+    category_n = category_counts or {category: 12 for category in f1_delta_piv.index}
     for i in range(len(f1_delta_piv.index)):
         for j in range(len(f1_delta_piv.columns)):
             val = data[i, j]
-            text = f"{val:+.2f}\n(N=12 videos)"
+            n_videos = category_n[f1_delta_piv.index[i]]
+            text = f"{val:+.2f}\n(N={n_videos} videos)"
             color = "white" if abs(val) > max_abs * 0.55 else "black"
             ax.text(j, i, text, ha="center", va="center", color=color, fontsize=9, fontweight="bold")
 
@@ -682,6 +695,13 @@ def run_novelty_pipeline(
     # Load collated predictions
     video_df = load_video_predictions(experiment_dir)
     cat_video_df = load_category_video_predictions(experiment_dir)
+    category_counts = (
+        cat_video_df[["video_id", "category"]]
+        .drop_duplicates()
+        .groupby("category")["video_id"]
+        .nunique()
+        .to_dict()
+    )
 
     # Novelty A: Confidence and Decision Dynamics
     logging.info("Computing Novelty A: Confidence-to-Decision Stability...")
@@ -713,6 +733,7 @@ def run_novelty_pipeline(
         conf_summary_df=conf_df,
         flip_summary_df=flip_df,
         figures_dir=output_dir / "figures",
+        category_counts=category_counts,
     )
 
     logging.info(f"Novelty pipeline completed. Outputs saved to {output_dir}")

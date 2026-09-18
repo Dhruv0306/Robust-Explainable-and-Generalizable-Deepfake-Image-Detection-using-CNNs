@@ -1,0 +1,24 @@
+{
+  "master_rows": 117,
+  "video_prediction_rows": 2808,
+  "category_prediction_rows": 7020,
+  "models": [
+    "efficientnet_b0",
+    "resnet50",
+    "xception"
+  ],
+  "seeds": [
+    42,
+    123,
+    2024
+  ],
+  "conditions_per_checkpoint": 13,
+  "clean_category_rows": {
+    "Original": 108,
+    "Deepfakes": 108,
+    "Face2Face": 108,
+    "FaceSwap": 108,
+    "NeuralTextures": 108
+  },
+  "passed": true
+}

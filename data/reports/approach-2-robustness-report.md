@@ -12,14 +12,14 @@ This report documents the robustness evaluation of the CNN deepfake detectors tr
 The experiment measures the degradation rates, failure thresholds, confidence shifts ($\Delta P_{\text{fake}}$), and prediction flip rates ($P_{\text{flip}}$) of CNN deepfake detectors when face crops are subjected to controlled image corruptions. Specifically, the study investigates:
 - **Failure Thresholds:** At what severity level does each architecture fail or collapse to random guessing?
 - **Degradation Selectivity:** Which corruption mechanisms (frequency-domain quantization vs. spatial resolution loss vs. photometric amplitude scaling) cause the steepest performance drops?
-- **Class & Manipulation Sensitivity:** Are fake videos (false negatives) degraded faster than real videos (false positives), and do manipulation categories (Deepfakes, Face2Face, FaceSwap, NeuralTextures) show unequal vulnerability?
+- **Class & Manipulation Sensitivity:** Are fake videos (false negatives) degraded faster than real videos (false positives), and do manipulation-category views (Deepfakes, Face2Face, FaceSwap, NeuralTextures) show different measured sensitivity? Category views reuse the same fake source videos and are not independent samples.
 - **Seed Variance:** Does training initialization seed affect zero-shot robustness under distribution shift?
 
 ### If everyone knows performance decreases under degradation, what is the purpose of your experiment?
 While a qualitative drop in accuracy under image corruption is expected, qualitative intuition does not reveal the underlying failure dynamics or feature dependencies. The purpose of this quantitative experiment is to provide exact empirical measurements:
 - **Quantifying Non-Linear Collapse:** Measuring whether performance degrades gracefully or collapses abruptly. For example, ResNet50 maintains F1 = 0.873 under 25% spatial scaling, but collapses to F1 = 0.000 under JPEG quality $Q=20$ (predicting Real for every video).
-- **Exposing Feature Dependencies:** Distinguishing models that rely on high-frequency DCT blending artifacts (which disappear under JPEG compression) from models that leverage global facial structure.
-- **Directional Asymmetry:** Demonstrating that photometric overexposure ($f=1.60$, $\Delta\text{F1} \approx -0.25$) harms classification significantly more than equivalent underexposure ($f=0.40$, $\Delta\text{F1} \approx -0.15$) due to highlight pixel saturation.
+- **Exposing Differential Sensitivity:** Comparing frequency-domain quantization, spatial resolution loss, and photometric shifts without attributing the observed changes to unmeasured internal features.
+- **Directional Asymmetry:** Measuring that photometric overexposure ($f=1.60$, $\Delta\text{F1} \approx -0.25$) produces a larger observed change than equivalent underexposure ($f=0.40$, $\Delta\text{F1} \approx -0.15$). Clipping is a property of the transformation, not an independently established cause.
 - **Architectural Profiling:** Providing baseline data comparing seed stability across Xception, EfficientNet-B0, and ResNet50.
 
 ### Are you improving robustness or measuring robustness?
@@ -27,7 +27,7 @@ While a qualitative drop in accuracy under image corruption is expected, qualita
 
 ### What is your clean baseline?
 The clean baseline is the uncorrupted test set evaluation inherited directly from Approach 1:
-- **Test Population:** FaceForensics++ C23 test split containing 6,304 frames across 24 videos (12 Real, 12 Fake covering Original, Deepfakes, Face2Face, FaceSwap, NeuralTextures).
+- **Test Population:** FaceForensics++ C23 test split containing 6,304 frames across 24 unique videos: 12 Original videos and 12 videos for each fake manipulation category (Deepfakes, Face2Face, FaceSwap, NeuralTextures) in the category-level views. Category analysis therefore contains 60 unique `(video_id, category)` pairs because each fake source video is represented across four manipulation-category views.
 - **Clean Baseline Metrics (Mean ± SD across seeds 42, 123, 2024):**
   - **Xception:** F1 = 0.959 ± 0.042, ROC-AUC = 0.975 ± 0.022
   - **ResNet50:** F1 = 0.943 ± 0.029, ROC-AUC = 0.991 ± 0.012
@@ -35,7 +35,7 @@ The clean baseline is the uncorrupted test set evaluation inherited directly fro
 - **Clean Parity Gate & Caching:** Clean predictions for all 9 checkpoints were computed once, verified against Approach 1 outputs to 5 decimal places, and cached to disk under `<checkpoint>/clean/`. Transformed evaluations reuse this fixed reference to guarantee zero baseline drift across all 117 condition passes.
 
 ### How do you quantify performance degradation?
-Performance degradation is measured at both video and frame levels using four complementary quantitative metrics:
+The core evaluator retains frame-level predictions for auditability, but the primary classification and all novelty analyses use video-level observations. There are 24 videos per condition; frames from the same video are not independent statistical observations. The analysis uses four complementary quantitative metrics:
 1. **Absolute Metric Deltas ($\Delta M$):**
    Difference relative to the clean reference condition ($\text{Severity}=0$):
    $$\Delta \text{F1} = \text{F1}_{\text{transformed}} - \text{F1}_{\text{clean}}$$
@@ -63,7 +63,7 @@ Performance degradation is measured at both video and frame levels using four co
 
 ## 3. Experimental Setup and Matrix
 
-- **Dataset:** FaceForensics++ C23 test split (6,304 frames across 24 videos).
+- **Dataset:** FaceForensics++ C23 test split (6,304 frames across 24 unique videos; 12 Original and 12 per fake manipulation category in category-level views).
 - **Checkpoints:** 9 independent runs (3 architectures × 3 training seeds).
 - **Transformations:**
   - **JPEG Compression:** Quality levels $Q \in \{80, 50, 20\}$ (Severities 1–3).
@@ -91,7 +91,7 @@ JPEG compression is the standard encoding format for digital photography, messag
 Images shared online or captured by lower-grade sensors routinely undergo downsampling, screen resizing, or thumbnail generation. In this setup, face crops are downsampled to a target fraction of their dimensions and then upsampled back to the original face crop resolution using bilinear interpolation before model-specific input sizing. This simulates spatial detail and Nyquist bandwidth loss while keeping the external tensor geometry constant, avoiding confounding resolution loss with model architecture input dimensions.
 
 ### Why select brightness changes?
-Faces in realistic settings encounter variable illumination, harsh sunlight, indoor shadows, and auto-exposure shifts across capture devices. Furthermore, generative deepfakes often suffer from illumination mismatches between donor and target skin tones. Evaluating brightness bidirectionally (darkening vs. brightening) isolates whether detector predictions fail due to loss of contrast in shadows or loss of texture through pixel saturation in highlights.
+Faces in realistic settings encounter variable illumination, harsh sunlight, indoor shadows, and auto-exposure shifts across capture devices. Evaluating brightness bidirectionally (darkening vs. brightening) measures whether detector outputs change differently under lower versus higher pixel intensity. Pixel clipping is part of the brightening transformation, but this experiment does not isolate clipping as the cause of any measured change.
 
 ### Why reduce the number of transformations in the core experiment?
 Earlier research planning listed seven candidate transformations. The core experiment was focused on three operations (JPEG, resizing, brightness) for four specific reasons:
@@ -148,7 +148,7 @@ Brightness scaling modifies pixel intensities multiplicatively in float32 space,
 ### Why might performance not decrease linearly with severity?
 Performance degradation under corruption exhibits non-linear behavior due to three structural factors:
 1. **Classifier Decision Hyperplanes:** Neural networks map inputs to high-dimensional latent representations. Small corruptions may shift latent vectors without crossing the decision threshold (0.5), resulting in a flat plateau. Once perturbations push representations across the boundary, binary decisions flip abruptly.
-2. **Frequency Truncation Cliffs in JPEG:** As JPEG quality drops, quantization tables do not remove frequency bands continuously. Between $Q=50$ and $Q=20$, entire high-frequency DCT blocks are set to zero simultaneously, causing an abrupt drop from moderate accuracy to complete collapse ($F1 = 0.000$ on ResNet50).
+2. **Non-linear JPEG Response:** The measured response is not a smooth decline. Between $Q=50$ and $Q=20$, ResNet50 drops from F1 = 0.500 to F1 = 0.000. This coincides with much stronger quantization, but the experiment does not separately identify the internal feature changes responsible.
 3. **Pixel Saturation Asymmetry in Brightening:** Darkening scales intensities downward smoothly without clipping (values stay above 0). Brightening, however, encounters a hard ceiling at 255. When multiple highlight pixels saturate at 255, local gradients and skin textures are flattened into uniform white patches, producing a steep non-linear drop at Severity 3 ($\Delta\text{F1} \approx -0.25$).
 
 ### How will you compare the three CNN architectures under the same transformation?
@@ -163,7 +163,7 @@ Fair cross-architecture comparison is enforced through three experimental contro
 
 ### Which metrics are you using?
 Evaluation uses a tiered hierarchy of quantitative metrics:
-- **Primary Classification Metrics:** F1-score, ROC-AUC, Accuracy, Precision, Recall, and 2×2 Confusion Matrices. Evaluated at both frame level (6,304 frames) and video level (24 videos per condition).
+- **Primary Classification Metrics:** F1-score, ROC-AUC, Accuracy, Precision, Recall, and 2×2 Confusion Matrices. Frame-level values are retained for auditability; primary comparison uses video-level predictions (24 videos per condition).
 - **Performance Drop Deltas ($\Delta M$):** Absolute metric deltas relative to the clean reference ($\Delta\text{F1}$, $\Delta\text{ROC-AUC}$, $\Delta\text{Accuracy}$).
 - **Decision Stability & Confidence Metrics:** Video prediction flip rate ($P_{\text{flip}}$), continuous fake probability shift ($\Delta P_{\text{fake}}$), and paired error-state transition proportions.
 
@@ -188,18 +188,20 @@ Negative deltas quantify degradation. For example, under JPEG $Q=20$, ResNet50 e
   - *Transformation Correction:* Clean Incorrect $\to$ Transformed Correct
   - *Persistent Error:* Clean Incorrect $\to$ Transformed Incorrect
 
-### Which architecture is most resistant to each transformation?
-From the architecture-level summary across all 9 checkpoints (Mean ± SD across 3 seeds):
-- **Spatial Resolution Downsampling ($s=0.25$):** **ResNet50** is most resistant, retaining F1 = $0.873 \pm 0.033$ ($\Delta\text{F1} = -0.070$), outperforming Xception (F1 = $0.855 \pm 0.045$) and EfficientNet-B0 (F1 = $0.736 \pm 0.092$).
-- **JPEG Compression ($Q=80$ and $Q=20$):** **ResNet50** retains highest F1 under mild compression $Q=80$ (F1 = $0.845 \pm 0.051$). Under severe compression ($Q=20$), **EfficientNet-B0** retains non-zero F1 ($0.430 \pm 0.155$), whereas ResNet50 collapses to $0.000 \pm 0.000$ and Xception drops to $0.095 \pm 0.042$.
-- **Darkening ($\alpha = 0.40$):** **Xception** is most resistant, retaining F1 = $0.824 \pm 0.055$ ($\Delta\text{F1} = -0.134$), outperforming EfficientNet-B0 (F1 = $0.776 \pm 0.088$) and ResNet50 (F1 = $0.649 \pm 0.078$).
-- **Brightening ($\alpha = 1.60$):** **Xception** is most resistant, retaining F1 = $0.762 \pm 0.062$ ($\Delta\text{F1} = -0.197$), outperforming ResNet50 (F1 = $0.691 \pm 0.084$) and EfficientNet-B0 (F1 = $0.689 \pm 0.112$).
+### How do the architectures compare under each transformation?
+The comparisons below are descriptive and apply only to the tested 24-video population, three seeds, and frozen severity anchors:
+- **Spatial Resolution Downsampling ($s=0.25$):** ResNet50 retains F1 = $0.873 \pm 0.033$, compared with Xception at $0.855 \pm 0.045$ and EfficientNet-B0 at $0.736 \pm 0.092$.
+- **JPEG Compression:** At $Q=80$, ResNet50 retains the highest F1 ($0.845 \pm 0.051$). At $Q=20$, EfficientNet-B0 retains non-zero F1 ($0.430 \pm 0.155$), while ResNet50 reaches $0.000 \pm 0.000$ and Xception reaches $0.095 \pm 0.042$.
+- **Darkening ($\alpha = 0.40$):** Xception retains F1 = $0.824 \pm 0.055$, compared with EfficientNet-B0 at $0.776 \pm 0.088$ and ResNet50 at $0.649 \pm 0.078$.
+- **Brightening ($\alpha = 1.60$):** Xception retains F1 = $0.762 \pm 0.062$, compared with ResNet50 at $0.691 \pm 0.084$ and EfficientNet-B0 at $0.689 \pm 0.112$.
+
+These are transformation-specific observations, not a universal architecture ranking.
 
 ### Does the degradation depend on transformation type or severity?
-**Both.** Degradation depends strongly on transformation type and monotonically on severity level:
-- **Transformation Type:** High-frequency JPEG compression is far more destructive ($\Delta\text{F1} \approx -0.75$ across architectures at $Q=20$) than spatial resolution downsampling ($\Delta\text{F1} \approx -0.10$ at 25% scale). This proves that deepfake detectors rely heavily on fragile high-frequency DCT blending artifacts rather than resilient facial geometry.
-- **Severity Level:** Performance degrades monotonically as severity increases from 1 to 3 across all transformations. For JPEG on ResNet50: Clean (F1 = 0.943) $\to$ $Q=80$ (F1 = 0.845) $\to$ $Q=50$ (F1 = 0.500) $\to$ $Q=20$ (F1 = 0.000).
-- **Directional Illumination:** Severe brightening ($f=1.60$, average $\Delta\text{F1} \approx -0.24$) causes a steeper drop than severe darkening ($f=0.40$, average $\Delta\text{F1} \approx -0.17$) due to highlight pixel saturation.
+**Both.** The observed degradation varies strongly by corruption type, and it generally becomes larger at stronger severity. The word “generally” matters: EfficientNet-B0's darkening F1 increased from clean to the first two darkening conditions before dropping at $\alpha=0.40$, so the observed response is not strictly monotonic for every checkpoint and transformation.
+- **Transformation Type:** The average JPEG Q=20 change is approximately $\Delta\text{F1}=-0.75$ across architectures, compared with approximately $-0.10$ for spatial downsampling at $s=0.25$. This pattern is consistent with greater sensitivity to information affected by JPEG quantization, but it does not by itself identify the exact internal feature used by a detector.
+- **Severity Level:** JPEG on ResNet50 shows a clear descending sequence: clean F1 = 0.943 $\to$ Q=80 F1 = 0.845 $\to$ Q=50 F1 = 0.500 $\to$ Q=20 F1 = 0.000. Other model-transformation sequences can contain plateaus or small reversals.
+- **Directional Illumination:** Severe brightening ($f=1.60$, average $\Delta\text{F1} \approx -0.24$) shows a larger average drop than severe darkening ($f=0.40$, average $\Delta\text{F1} \approx -0.17$). This pattern is consistent with clipping in the brightened inputs; the evaluation does not independently establish that clipping as the sole causal mechanism.
 
 ---
 
@@ -237,16 +239,16 @@ However, existing literature primarily uses corruptions in two ways:
 Approach 2 differs by conducting a controlled, zero-shot sensitivity diagnostic across multiple architectures and initialization seeds without retraining.
 
 ### What is your comparison with existing literature?
-- **Agreement on JPEG Quantization Vulnerability:** Our empirical finding that JPEG compression causes catastrophic F1 collapse ($F1 = 0.000$ for ResNet50 at $Q=20$) aligns with observations in Jiang et al. (2020) and Qian et al. (ECCV 2020, *Thinking in Frequency*). Both papers noted that standard CNN deepfake detectors trained on uncompressed or low-compression data rely heavily on high-frequency Discrete Cosine Transform (DCT) anomalies. When JPEG quantization zero-out these high-frequency AC coefficients, detector discrimination collapses.
-- **Agreement on Spatial Scale Resilience:** In agreement with DeepfakeBench (Yan et al., 2023), spatial resolution downsampling ($s=0.25$) causes significantly less degradation (ResNet50 F1 remains 0.873) than JPEG compression of equivalent visual noise. Coarse facial geometry and semantic features remain intact for convolutional feature extractors.
+- **Agreement on JPEG Quantization Vulnerability:** Our empirical finding that JPEG compression causes catastrophic F1 collapse ($F1 = 0.000$ for ResNet50 at $Q=20$) is consistent with observations in Jiang et al. (2020) and Qian et al. (ECCV 2020, *Thinking in Frequency*) about detector sensitivity to high-frequency forensic information. Our experiment does not directly identify the internal features responsible for the collapse.
+- **Agreement on Spatial Scale Resilience:** Consistent with the degradation patterns reported in benchmark work such as DeepfakeBench (Yan et al., 2023), spatial resolution downsampling ($s=0.25$) causes less measured degradation (ResNet50 F1 remains 0.873) than JPEG compression in our test population. We do not claim that this establishes a universal preservation of semantic facial features.
 - **Methodological Refinements over Prior Benchmarks:**
   - **Multi-Seed Isolation:** Many prior studies evaluate a single checkpoint per architecture, confusing random weight initialization luck with true architectural robustness. By evaluating 9 independent checkpoints (3 architectures × 3 seeds: 42, 123, 2024), we separate seed variance ($\text{SD} = \pm 0.029$ for ResNet50 vs. $\pm 0.042$ for Xception) from intrinsic architectural stability.
   - **Pre-Resize Ordering:** Prior works frequently apply corruptions after resizing images to the model's input size ($299 \times 299$ vs. $224 \times 224$), confounding corruption severity with model input resolution. We apply transformations to raw face crops before model-specific resizing, guaranteeing mathematically identical inputs across all three architectures.
-  - **Photometric Directional Asymmetry:** We evaluate illumination changes bidirectionally. This exposes an asymmetry (overexposure at $f=1.60$ drops F1 by $\sim 0.25$, whereas underexposure at $f=0.40$ drops F1 by $\sim 0.15$) caused by highlight pixel saturation clipping facial skin textures.
+  - **Photometric Directional Asymmetry:** We evaluate illumination changes bidirectionally. The measured asymmetry (overexposure at $f=1.60$ drops F1 by $\sim 0.25$, whereas underexposure at $f=0.40$ drops F1 by $\sim 0.15$) is consistent with a stronger effect from clipped brightened pixels in this experiment, but the experiment does not isolate clipping as the sole causal factor.
 
 ### What is your experimental contribution if the transformations themselves are already known?
 The individual transformation algorithms (JPEG compression, bilinear resizing, photometric scaling) are standard signal processing operations. The scientific contribution of Approach 2 lies in the **diagnostic methodology and systematic evaluation framework**:
-1. **Dissecting Learned Forensic Cues:** By decoupling frequency-domain quantization from spatial resolution loss and photometric scaling, the experiment proves that standard CNN detectors do not learn resilient semantic facial forgery representations; instead, they overfit to fragile high-frequency blending boundaries.
+1. **Dissecting Learned Forensic Cues:** By decoupling frequency-domain quantization from spatial resolution loss and photometric scaling, the experiment identifies a large empirical gap between JPEG and resize sensitivity. This pattern is consistent with sensitivity to fragile high-frequency information, but does not by itself prove which internal forensic features the detectors use.
 2. **Unconfounded Experimental Protocol:** Enforcing pre-resize corruption ordering, frozen anchor parameters, strict video-level statistical units, and single-pass clean baseline caching establishes a reproducible protocol for deepfake robustness evaluation.
 3. **Cumulative Foundation for Project Verticals:** Approach 2 forms the empirical bridge in our project's four-stage research framework:
    $$\text{Baseline (App 1)} \longrightarrow \text{Robustness (App 2)} \longrightarrow \text{Explainability (App 3)} \longrightarrow \text{Generalizability (App 4)}$$
@@ -254,18 +256,67 @@ The individual transformation algorithms (JPEG compression, bilinear resizing, p
 
 ---
 
-## 9. Key Scientific Findings
+## 9. Novelty Extension Outputs
+
+The novelty extension is a post-processing analysis over the same 117-condition artifacts. It does not change the robustness experiment, checkpoints, or raw predictions. Generated outputs are stored under:
+
+```text
+data/output/robustness/core_experiment_117/novelty/
+├── artifact_audit.json
+├── confidence_decision_summary.csv
+├── prediction_flip_summary.csv
+├── error_transition_summary.csv
+├── failure_overlap_summary.csv
+├── architecture_disagreement_summary.csv
+├── failure_consensus_summary.csv
+├── manipulation_vulnerability_summary.csv
+├── manipulation_f1_delta.csv
+├── manipulation_recall_delta.csv
+└── figures/
+    ├── confidence_drift_and_flip_rate_analysis.png
+    ├── architecture_failure_overlap_jaccard_heatmap.png
+    └── manipulation_vulnerability_delta_f1_heatmap.png
+```
+
+The extension answers three diagnostic questions:
+- Do confidence shifts occur before binary decisions flip, and do Fake and Real videos move in different directions?
+- Do CNN architectures fail on the same videos under the same corruption, or do their failure sets differ?
+- Does transformation sensitivity vary by manipulation category when each category is treated as 12 paired video observations?
+
+### Novelty A: confidence-to-decision stability
+
+The unit of analysis is the video-level mean fake probability. Confidence drift is computed as:
+
+$$\Delta P_{fake}=P_{fake}^{transformed}-P_{fake}^{clean}$$
+
+Fake and Real videos are reported separately because the same sign has different interpretations by class. Prediction flip rates and four error transitions (stable correct, robustness failure, transformation correction, persistent error) are reported alongside confidence drift. The JPEG panel is an example condition, not an aggregate over every transformation.
+
+### Novelty B: cross-architecture failure agreement
+
+A robustness failure is defined as clean-correct to transformed-incorrect. For each architecture pair, failure-set Jaccard is computed independently for each seed and then summarized as mean ± SD across seeds. When both failure sets are empty, Jaccard is defined as 1.0, representing agreement on the absence of failures. Prediction disagreement and 0/1/2/3-architecture failure consensus are separate measures.
+
+### Novelty C: manipulation-specific vulnerability
+
+This analysis uses a one-vs-Original formulation, not a five-class multiclass F1. For each fake category, that category is the positive class and Original videos are the negative class:
+
+$$F1=\frac{2TP}{2TP+FP+FN}$$
+
+Here, TP and FN come from the selected manipulation category, while FP comes from Original videos predicted as Fake under the same model, seed, and condition. The primary heatmaps contain the four fake categories only; Original has no positive examples for a positive-class F1. Each category contributes 12 unique videos in this test population. The same videos are evaluated across architectures and seeds, so category results are descriptive sensitivity patterns rather than independent-sample evidence.
+
+These results are descriptive sensitivity analyses. The small number of independent videos per category limits broad statistical claims.
+
+## 10. Key Scientific Findings
 
 1. **Extreme Sensitivity to High-Frequency Quantization (JPEG):**
-   All architectures exhibit catastrophic F1 degradation under heavy JPEG compression ($Q=20$). This occurs because deepfake generation leaves subtle high-frequency blending boundaries and frequency spectrum anomalies in local DCT coefficients, which are entirely smoothed out at low quality factors.
+   All architectures exhibit catastrophic F1 degradation under heavy JPEG compression ($Q=20$). This is an observed performance pattern; the experiment does not independently identify the internal feature responsible.
 
 2. **Robustness to Spatial Resolution Loss:**
-   Pure resolution downsampling ($s=0.25$) results in significantly lower performance degradation than severe JPEG compression of equivalent visual noise. Coarse facial geometry and global structural features remain largely preserved for neural feature extractors.
+   Pure resolution downsampling ($s=0.25$) results in lower measured degradation than severe JPEG compression in this test population. This is an empirical comparison, not proof that a particular semantic feature is preserved.
 
 3. **Photometric Asymmetry:**
-   Underexposure ($f=0.40$) reduces contrast and shadows, leading to moderate degradation. Severe overexposure ($f=1.60$) triggers severe pixel saturation, clipping high-light facial features and causing a sharper F1 collapse across all models.
+   Underexposure ($f=0.40$) and overexposure ($f=1.60$) produce different measured degradation. The stronger overexposure effect is consistent with highlight clipping, but clipping was not isolated as a causal variable.
 
-## 10. Methodological Safeguards & Reproducibility
+## 11. Methodological Safeguards & Reproducibility
 
 - Zero training or weight fine-tuning was performed under corrupted conditions.
 - Clean predictions were computed once per checkpoint, cached, and reused as the fixed baseline.
@@ -273,7 +324,7 @@ The individual transformation algorithms (JPEG compression, bilinear resizing, p
 
 ---
 
-## 11. Output Artifacts & Directory Structure
+## 13. Output Artifacts & Directory Structure
 
 All experimental outputs from `core_experiment_117` are organized under:
 

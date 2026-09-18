@@ -101,6 +101,19 @@ class TestRobustnessNovelty(unittest.TestCase):
         )
         self.assertTrue((error_df["total_check"] == 24).all())
 
+    def test_jaccard_empty_union_is_complete_agreement(self):
+        """Verify the documented empty failure-union convention J=1.0."""
+        from robustness_novelty import compute_pairwise_architecture_failure_agreement
+        toy = pd.DataFrame([
+            {"model": m, "seed": 42, "video_id": "v1", "label": 1, "pred_fake": 1, "prob_fake": 0.9, "transformation": "clean", "severity": 0, "direction": "none", "parameter_name": "none", "parameter_value": None}
+            for m in ["efficientnet_b0", "resnet50", "xception"]
+        ] + [
+            {"model": m, "seed": 42, "video_id": "v1", "label": 1, "pred_fake": 1, "prob_fake": 0.9, "transformation": "jpeg", "severity": 1, "direction": "none", "parameter_name": "quality", "parameter_value": 80}
+            for m in ["efficientnet_b0", "resnet50", "xception"]
+        ])
+        overlap, _, _ = compute_pairwise_architecture_failure_agreement(toy)
+        self.assertTrue((overlap["jaccard_overlap"] == 1.0).all())
+
     def test_novelty_b_architecture_failure_agreement(self):
         """Verify Jaccard overlap bounds in [0.0, 1.0], empty-union J=1.0, and consensus."""
         overlap_df, disagree_df, consensus_df = compute_pairwise_architecture_failure_agreement(self.video_df)
@@ -126,6 +139,13 @@ class TestRobustnessNovelty(unittest.TestCase):
         )
         self.assertTrue((consensus_df["vid_sum"] == 24).all())
 
+    def test_clean_transformed_pairing(self):
+        """Verify every transformed checkpoint condition has exactly 24 paired videos."""
+        from robustness_novelty import compute_confidence_decision_analysis
+        conf_df, flip_df, error_df = compute_confidence_decision_analysis(self.video_df)
+        self.assertTrue((flip_df["total_videos"] == 24).all())
+        self.assertTrue((error_df["total_evals"] == 24).all())
+
     def test_novelty_c_manipulation_vulnerability(self):
         """Verify manipulation vulnerability calculations and exact N=12 accounting."""
         cat_agg_df, f1_piv, recall_piv = compute_manipulation_vulnerability(self.cat_video_df)
@@ -142,6 +162,10 @@ class TestRobustnessNovelty(unittest.TestCase):
 
         # Under severe JPEG Q=20, Delta F1 should be strongly negative (~ -0.80)
         self.assertTrue((f1_piv["jpeg"] < -0.7).all())
+
+        # F1 must use false positives and therefore differ from recall for
+        # at least one category-condition; this catches recall-as-F1 regressions.
+        self.assertTrue((cat_agg_df["f1_mean"] - cat_agg_df["recall_mean"]).abs().max() > 0.0)
 
     def test_end_to_end_novelty_pipeline(self):
         """Verify full run_novelty_pipeline execution and file creation."""

@@ -444,15 +444,28 @@ def compute_manipulation_vulnerability(
         y_pred = grp["pred_fake"].values
         n_vids = len(grp)
 
-        # In FaceForensics++: 12 Real videos (Original) and 12 Fake videos for each manipulation
-        # Compute category-level accuracy and binary recall/f1
+        # Category groups contain one ground-truth class. Fake-category F1 is
+        # still computed against all 24 videos so false positives contribute.
         if cat == "Original":
-            # Real class recall: true negative rate
+            # Retain class-specific true-negative recall for supporting analysis.
             recall = (y_pred == 0).sum() / len(y_pred) if len(y_pred) > 0 else 0.0
-            f1 = recall  # for Real class
+            f1 = np.nan  # positive-class F1 is undefined for an all-Real subset
         else:
             recall = (y_pred == 1).sum() / len(y_pred) if len(y_pred) > 0 else 0.0
-            f1 = recall
+            # The category's videos are the positive class; FP comes from all
+            # Original videos in the same model/seed/condition.
+            real_grp = cat_video_df[
+                (cat_video_df["model"] == model)
+                & (cat_video_df["seed"] == seed)
+                & (cat_video_df["transformation"] == t_name)
+                & (cat_video_df["severity"] == sev)
+                & (cat_video_df["category"] == "Original")
+            ]
+            tp = int((y_pred == 1).sum())
+            fn = int((y_pred == 0).sum())
+            fp = int((real_grp["pred_fake"] == 1).sum())
+            denom = 2 * tp + fp + fn
+            f1 = (2 * tp / denom) if denom else 0.0
 
         records.append({
             "model": model,
@@ -531,19 +544,22 @@ def generate_novelty_heatmaps_and_plots(
     # 1. Figure N1: Transformation x Manipulation Delta F1 Heatmap
     fig, ax = plt.subplots(figsize=(8, 5), dpi=300)
     data = f1_delta_piv.values
-    im = ax.imshow(data, cmap="coolwarm", vmin=-0.8, vmax=0.1, aspect="auto")
+    max_abs = float(np.nanmax(np.abs(data))) if data.size else 1.0
+    max_abs = max(max_abs, 1e-6)
+    im = ax.imshow(data, cmap="coolwarm", vmin=-max_abs, vmax=max_abs, aspect="auto")
 
     ax.set_xticks(np.arange(len(f1_delta_piv.columns)))
     ax.set_yticks(np.arange(len(f1_delta_piv.index)))
     ax.set_xticklabels([col.replace("_", " ").title() for col in f1_delta_piv.columns], fontsize=10)
     ax.set_yticklabels(f1_delta_piv.index, fontsize=10)
 
-    # Annotate with Delta F1 value and N=12
+    # Annotate with Delta F1 and the exact unique-video count for each category.
+    # The category input is defined as 12 unique videos in this test population.
     for i in range(len(f1_delta_piv.index)):
         for j in range(len(f1_delta_piv.columns)):
             val = data[i, j]
-            text = f"{val:+.2f}\n(N=12)"
-            color = "white" if val < -0.4 or val > 0.05 else "black"
+            text = f"{val:+.2f}\n(N=12 videos)"
+            color = "white" if abs(val) > max_abs * 0.55 else "black"
             ax.text(j, i, text, ha="center", va="center", color=color, fontsize=9, fontweight="bold")
 
     ax.set_title("Transformation × Manipulation Vulnerability (Δ F1 at Severity 3)", fontsize=11, fontweight="bold", pad=12)

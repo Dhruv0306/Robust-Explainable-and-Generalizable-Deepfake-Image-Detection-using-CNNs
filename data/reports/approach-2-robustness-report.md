@@ -254,7 +254,36 @@ The individual transformation algorithms (JPEG compression, bilinear resizing, p
 
 ---
 
-## 9. Key Scientific Findings
+## 9. Novelty Extension Outputs
+
+The novelty extension is a post-processing analysis over the same 117-condition artifacts. It does not change the robustness experiment, checkpoints, or raw predictions. Generated outputs are stored under:
+
+```text
+data/output/robustness/core_experiment_117/novelty/
+├── artifact_audit.json
+├── confidence_decision_summary.csv
+├── prediction_flip_summary.csv
+├── error_transition_summary.csv
+├── failure_overlap_summary.csv
+├── architecture_disagreement_summary.csv
+├── failure_consensus_summary.csv
+├── manipulation_vulnerability_summary.csv
+├── manipulation_f1_delta.csv
+├── manipulation_recall_delta.csv
+└── figures/
+    ├── confidence_drift_and_flip_rate_analysis.png
+    ├── architecture_failure_overlap_jaccard_heatmap.png
+    └── manipulation_vulnerability_delta_f1_heatmap.png
+```
+
+The extension answers three diagnostic questions:
+- Do confidence shifts occur before binary decisions flip, and do Fake and Real videos move in different directions?
+- Do CNN architectures fail on the same videos under the same corruption, or do their failure sets differ?
+- Does transformation sensitivity vary by manipulation category when each category is treated as 12 paired video observations?
+
+These results are descriptive sensitivity analyses. The small number of independent videos per category limits broad statistical claims.
+
+## 10. Key Scientific Findings
 
 1. **Extreme Sensitivity to High-Frequency Quantization (JPEG):**
    All architectures exhibit catastrophic F1 degradation under heavy JPEG compression ($Q=20$). This occurs because deepfake generation leaves subtle high-frequency blending boundaries and frequency spectrum anomalies in local DCT coefficients, which are entirely smoothed out at low quality factors.

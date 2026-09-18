@@ -105,6 +105,61 @@ def load_category_video_predictions(experiment_dir: Path) -> pd.DataFrame:
     return full_cat_df
 
 
+def audit_novelty_artifacts(experiment_dir: Path) -> Dict[str, Any]:
+    """Validate the existing Approach 2 artifacts before novelty post-processing."""
+    experiment_dir = Path(experiment_dir)
+    master_path = experiment_dir / "master_summary.csv"
+    if not master_path.exists():
+        raise FileNotFoundError(f"Missing master summary: {master_path}")
+
+    master = pd.read_csv(master_path)
+    video_df = load_video_predictions(experiment_dir)
+    cat_df = load_category_video_predictions(experiment_dir)
+
+    expected_conditions = 13
+    expected_models = {"efficientnet_b0", "resnet50", "xception"}
+    expected_seeds = {42, 123, 2024}
+    expected_video_cols = {
+        "video_id", "category", "label", "transformation", "severity",
+        "prob_fake", "pred_fake", "model", "seed",
+    }
+    expected_frame_cols = {
+        "video_id", "category", "label", "prob_fake", "pred_fake",
+        "transformation", "severity", "model", "seed",
+    }
+
+    if len(master) != 117:
+        raise ValueError(f"Expected 117 master rows, found {len(master)}")
+    if set(master["model"]) != expected_models or set(master["seed"]) != expected_seeds:
+        raise ValueError("Master summary does not contain the expected model/seed matrix")
+    if video_df["model"].nunique() != 3 or video_df["seed"].nunique() != 3:
+        raise ValueError("Video predictions do not contain all 9 checkpoints")
+    if not expected_video_cols.issubset(video_df.columns):
+        raise ValueError(f"Video prediction schema is missing {expected_video_cols - set(video_df.columns)}")
+    if not expected_frame_cols.issubset(cat_df.columns):
+        raise ValueError(f"Category prediction schema is missing {expected_frame_cols - set(cat_df.columns)}")
+
+    duplicate_keys = ["model", "seed", "transformation", "severity", "video_id"]
+    if video_df.duplicated(duplicate_keys).any():
+        raise ValueError("Duplicate model/seed/condition/video prediction rows detected")
+
+    clean_categories = cat_df[cat_df["severity"] == 0]["category"].value_counts()
+    expected_categories = {"Original", "Deepfakes", "Face2Face", "FaceSwap", "NeuralTextures"}
+    if set(clean_categories.index) != expected_categories or not (clean_categories == 108).all():
+        raise ValueError(f"Expected 108 clean rows per category (9 checkpoints x 12 videos), got {clean_categories.to_dict()}")
+
+    return {
+        "master_rows": len(master),
+        "video_prediction_rows": len(video_df),
+        "category_prediction_rows": len(cat_df),
+        "models": sorted(expected_models),
+        "seeds": sorted(expected_seeds),
+        "conditions_per_checkpoint": expected_conditions,
+        "clean_category_rows": clean_categories.to_dict(),
+        "passed": True,
+    }
+
+
 # -----------------------------------------------------------------------------
 # Novelty A: Confidence-to-Decision Stability
 # -----------------------------------------------------------------------------
@@ -601,6 +656,12 @@ def run_novelty_pipeline(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     logging.info(f"Executing Novelty Pipeline on {experiment_dir}...")
+
+    # Phase 0: audit existing artifacts before any calculations
+    audit = audit_novelty_artifacts(experiment_dir)
+    with open(output_dir / "artifact_audit.json", "w", encoding="utf-8") as f:
+        json.dump(audit, f, indent=2)
+    logging.info("Artifact audit passed: %s", audit)
 
     # Load collated predictions
     video_df = load_video_predictions(experiment_dir)

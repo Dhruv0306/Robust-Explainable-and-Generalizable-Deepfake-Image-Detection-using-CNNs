@@ -25,6 +25,7 @@ from robustness_novelty import (
     compute_confidence_decision_analysis,
     compute_pairwise_architecture_failure_agreement,
     compute_manipulation_vulnerability,
+    audit_novelty_artifacts,
     run_novelty_pipeline,
 )
 
@@ -46,6 +47,16 @@ class TestRobustnessNovelty(unittest.TestCase):
 
     def tearDown(self):
         shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+    def test_phase0_artifact_audit(self):
+        """Verify all 117 conditions, schemas, checkpoints, and category counts before analysis."""
+        audit = audit_novelty_artifacts(self.exp_dir)
+        self.assertTrue(audit["passed"])
+        self.assertEqual(audit["master_rows"], 117)
+        self.assertEqual(audit["video_prediction_rows"], 2808)
+        self.assertEqual(audit["conditions_per_checkpoint"], 13)
+        self.assertEqual(set(audit["clean_category_rows"]), {"Original", "Deepfakes", "Face2Face", "FaceSwap", "NeuralTextures"})
+        self.assertTrue(all(v == 108 for v in audit["clean_category_rows"].values()))
 
     def test_ingestion_counts(self):
         """Verify video prediction ingestion captures exactly 9 checkpoints x 13 conditions x 24 videos = 2,808 rows."""

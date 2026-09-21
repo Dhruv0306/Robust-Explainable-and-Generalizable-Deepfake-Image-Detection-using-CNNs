@@ -79,12 +79,21 @@ class MaskLoader:
         )
 
     def _get_capture(self, video_path: Path) -> Optional[cv2.VideoCapture]:
-        """Get or create cached cv2.VideoCapture instance."""
+        """Get or create cached cv2.VideoCapture instance with max open handle management."""
         vpath_str = str(video_path)
         if vpath_str not in self._video_caps:
             if not video_path.exists():
                 logging.warning(f"Mask video missing: {video_path}")
                 return None
+            # Keep max 8 video handles open simultaneously to limit resource usage
+            if len(self._video_caps) >= 8:
+                oldest_key = next(iter(self._video_caps))
+                old_cap = self._video_caps.pop(oldest_key)
+                try:
+                    old_cap.release()
+                except Exception:
+                    pass
+
             cap = cv2.VideoCapture(vpath_str)
             if not cap.isOpened():
                 logging.warning(f"Failed to open mask video: {video_path}")

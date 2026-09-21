@@ -170,60 +170,110 @@ class ExplainabilityOrchestrator:
     def run_evaluation(self) -> Dict[str, Any]:
         """
         Execute full explainability evaluation across all conditions and frames.
+        Streams rows to disk in batches of 100 to keep peak RAM usage bounded.
         """
-        frame_records: List[Dict[str, Any]] = []
+        import gc
+        FLUSH_BATCH = 100  # write to disk every N rows
+
+        frame_csv_path = self.output_dir / "frame_level_results.csv"
+        write_header = not frame_csv_path.exists()
+
+        # Lightweight clean cache: only the minimal fields needed by transformed passes
+        # (pred_fake, prob_fake for prediction-state; cam cache file already on disk)
         clean_cache: Dict[Tuple[str, int], Dict[str, Any]] = {}
 
-        # 1. Clean Reference Pass (Mandatory First)
-        logging.info(f"--- Running Clean Baseline Pass for {self.model_name} (seed {self.seed}) ---")
-        clean_cond = ("clean", "clean", 0, None)
+        def _flush(rows: List[Dict[str, Any]], fh: Any, cols: List[str]) -> None:
+            for rec in rows:
+                fh.write(",".join(str(rec.get(c, "")) for c in cols) + "\n")
+            rows.clear()
 
-        for _, row in tqdm(self.test_df.iterrows(), total=len(self.test_df), desc="Clean Pass"):
-            res = self._process_frame(row, clean_cond, clean_ref=None)
-            frame_records.append(res)
-            # Store clean reference for paired stability and faithfulness delta
-            key = (str(row["video_id"]), int(row["original_frame_number"]))
-            clean_cache[key] = res
+        with open(frame_csv_path, "a", newline="", encoding="utf-8") as fh:
+            # Determine fieldnames from a probe record (all keys appear in clean pass)
+            probe_row = self.test_df.iloc[0]
+            probe_rec = self._process_frame(probe_row, ("clean", "clean", 0, None), clean_ref=None)
+            fieldnames = list(probe_rec.keys())
 
-        # 2. Transformed Conditions Pass
-        for cond_tuple in self.conditions:
-            cond_name, family, sev, param = cond_tuple
-            if cond_name == "clean":
-                continue
+            if write_header:
+                fh.write(",".join(fieldnames) + "\n")
 
-            cond_tag = f"{family}_sev{sev}" if sev > 0 else cond_name
-            logging.info(f"--- Running Condition: {cond_tag} (param={param}) ---")
+            # ── 1. Clean Baseline Pass ─────────────────────────────────────────
+            logging.info(f"--- Running Clean Baseline Pass for {self.model_name} (seed {self.seed}) ---")
+            clean_cond = ("clean", "clean", 0, None)
+            batch: List[Dict[str, Any]] = [probe_rec]
+            key0 = (str(probe_row["video_id"]), int(probe_row["original_frame_number"]))
+            clean_cache[key0] = {"pred_fake": probe_rec["pred_fake"], "prob_fake": probe_rec["prob_fake"]}
 
-            for _, row in tqdm(self.test_df.iterrows(), total=len(self.test_df), desc=f"{cond_tag}"):
+            for _, row in tqdm(
+                self.test_df.iloc[1:].iterrows(),
+                total=len(self.test_df) - 1,
+                desc="Clean Pass",
+            ):
+                res = self._process_frame(row, clean_cond, clean_ref=None)
+                batch.append(res)
                 key = (str(row["video_id"]), int(row["original_frame_number"]))
-                clean_ref = clean_cache.get(key)
-                res = self._process_frame(row, cond_tuple, clean_ref=clean_ref)
-                frame_records.append(res)
+                clean_cache[key] = {"pred_fake": res["pred_fake"], "prob_fake": res["prob_fake"]}
 
-        # 3. Export Frame-Level Results
-        frame_df = pd.DataFrame(frame_records)
-        frame_csv_path = self.output_dir / "frame_level_results.csv"
-        frame_df.to_csv(frame_csv_path, index=False)
-        logging.info(f"Saved frame-level results ({len(frame_df)} rows) to: {frame_csv_path}")
+                if len(batch) >= FLUSH_BATCH:
+                    _flush(batch, fh, fieldnames)
+                    fh.flush()
+                    gc.collect()
 
-        # 4. Video-Level Aggregation
-        video_df = self._aggregate_to_video_level(frame_df)
+            if batch:
+                _flush(batch, fh, fieldnames)
+                fh.flush()
+            torch.cuda.empty_cache()
+
+            # ── 2. Transformed Conditions Passes ──────────────────────────────
+            for cond_tuple in self.conditions:
+                cond_name, family, sev, param = cond_tuple
+                if cond_name == "clean":
+                    continue
+
+                cond_tag = f"{family}_sev{sev}" if sev > 0 else cond_name
+                logging.info(f"--- Running Condition: {cond_tag} (param={param}) ---")
+
+                for _, row in tqdm(self.test_df.iterrows(), total=len(self.test_df), desc=cond_tag):
+                    key = (str(row["video_id"]), int(row["original_frame_number"]))
+                    clean_ref = clean_cache.get(key)
+                    res = self._process_frame(row, cond_tuple, clean_ref=clean_ref)
+                    batch.append(res)
+
+                    if len(batch) >= FLUSH_BATCH:
+                        _flush(batch, fh, fieldnames)
+                        fh.flush()
+                        gc.collect()
+
+                if batch:
+                    _flush(batch, fh, fieldnames)
+                    fh.flush()
+                torch.cuda.empty_cache()
+
+        # Free clean cache memory
+        clean_cache.clear()
+        gc.collect()
+        logging.info(f"Frame-level CSV complete: {frame_csv_path}")
+
+        # ── 3. Video-Level Aggregation (read streamed CSV) ────────────────────
+        frame_df = pd.read_csv(frame_csv_path, low_memory=False)
         video_csv_path = self.output_dir / "video_level_results.csv"
+        video_df = self._aggregate_to_video_level(frame_df)
+        del frame_df
+        gc.collect()
         video_df.to_csv(video_csv_path, index=False)
         logging.info(f"Saved video-level results ({len(video_df)} rows) to: {video_csv_path}")
 
-        # 5. Statistical Analysis
-        stats_results = self._run_statistical_analysis(video_df)
+        # ── 4. Statistical Analysis ───────────────────────────────────────────
         stats_csv_path = self.output_dir / "statistics_results.csv"
+        stats_results = self._run_statistical_analysis(video_df)
         stats_results.to_csv(stats_csv_path, index=False)
         logging.info(f"Saved statistical test results ({len(stats_results)} rows) to: {stats_csv_path}")
 
-        # 6. Global Summary Metadata
+        # ── 5. Global Summary Metadata ────────────────────────────────────────
         summary = {
             "model": self.model_name,
             "seed": int(self.seed),
             "pilot_mode": self.pilot_mode,
-            "total_frames_evaluated": len(frame_df),
+            "total_frames_evaluated": int(video_df["n_valid_frames"].sum()) if "n_valid_frames" in video_df else len(self.test_df),
             "total_videos": int(video_df["video_id"].nunique()),
             "conditions_evaluated": [f"{c[1]}_{c[2]}" if c[2] > 0 else c[0] for c in self.conditions],
             "checkpoint_path": self.run_info["checkpoint_path"],
@@ -233,12 +283,15 @@ class ExplainabilityOrchestrator:
         with open(self.output_dir / "summary.json", "w") as f:
             json.dump(summary, f, indent=2)
 
-        # 7. Global Visuals & Representative Case Panels
+        # ── 6. Visuals ────────────────────────────────────────────────────────
         try:
             from explainability_visuals import generate_global_heatmaps, generate_representative_cases
+            frame_df_vis = pd.read_csv(frame_csv_path, low_memory=False)
             figs_dir = self.output_dir / "figures"
-            generate_global_heatmaps(frame_df, self.cache_dir, figs_dir)
-            generate_representative_cases(frame_df, self.cache_dir, figs_dir)
+            generate_global_heatmaps(frame_df_vis, self.cache_dir, figs_dir)
+            generate_representative_cases(frame_df_vis, self.cache_dir, figs_dir)
+            del frame_df_vis
+            gc.collect()
         except Exception as e:
             logging.warning(f"Failed to generate visual figures: {e}")
 

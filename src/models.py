@@ -57,6 +57,31 @@ def get_model_normalization(model_name: str) -> dict:
     }
 
 
+def get_target_layer(model_name: str, model: nn.Module) -> list:
+    """
+    Resolve the target convolutional layer for Grad-CAM for a given architecture.
+
+    Args:
+        model_name: 'xception', 'efficientnet_b0', or 'resnet50'
+        model: instantiated PyTorch model
+
+    Returns:
+        List containing the target layer module (as expected by pytorch-grad-cam)
+    """
+    if model_name == "xception":
+        return [model.conv4.pointwise]
+    elif model_name == "efficientnet_b0":
+        return [model.conv_head]
+    elif model_name == "resnet50":
+        return [model.layer4[-1]]
+    else:
+        # Fallback: find the last Conv2d layer
+        conv_layers = [m for m in model.modules() if isinstance(m, nn.Conv2d)]
+        if conv_layers:
+            return [conv_layers[-1]]
+        raise ValueError(f"No convolutional layer found in model {model_name}")
+
+
 if __name__ == "__main__":
     # Test model creation
     logging.basicConfig(level=logging.INFO)

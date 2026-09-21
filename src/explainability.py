@@ -231,18 +231,26 @@ class ExplainabilityOrchestrator:
                 fh.write(",".join(str(rec.get(c, "")) for c in cols) + "\n")
             rows.clear()
 
-        # Probe once to get fieldnames (only if header not yet written)
-        fieldnames: List[str] = []
-        if frame_csv_path.exists():
-            try:
-                with open(frame_csv_path, "r", encoding="utf-8") as fh_r:
-                    header_line = fh_r.readline().strip()
-                if header_line:
-                    fieldnames = header_line.split(",")
-            except Exception:
-                pass
+        # Definitive schema of all possible columns across real and fake frames
+        fieldnames = [
+            "model", "seed", "video_id", "original_frame_number", "frame_path",
+            "category", "ground_truth", "transformation", "transformation_family",
+            "severity", "prob_fake", "pred_fake", "correct",
+            "saliency_mass", "hit_rate", "saliency_entropy",
+            "SO@10", "IoU@10", "SO@20", "IoU@20", "SO@30", "IoU@30", "SO", "IoU",
+            "prob_fake_blur", "faithfulness_blur",
+            "prob_fake_zero", "faithfulness_zero",
+            "prob_fake_mean", "faithfulness_mean",
+            "faithfulness",
+            "clean_prob_fake", "clean_pred_fake", "prediction_preserved",
+            "ES_cos", "explanation_IoU@10", "explanation_IoU@20", "explanation_IoU@30", "explanation_IoU",
+            "prediction_state"
+        ]
 
         with open(frame_csv_path, "a", newline="", encoding="utf-8") as fh:
+            if write_header:
+                fh.write(",".join(fieldnames) + "\n")
+                write_header = False
 
             # ── 1. Clean Baseline Pass ─────────────────────────────────────────
             if "clean" not in completed_conditions:
@@ -257,31 +265,16 @@ class ExplainabilityOrchestrator:
                     clean_cache[key] = {"pred_fake": res["pred_fake"], "prob_fake": res["prob_fake"]}
 
                     if len(batch) >= FLUSH_BATCH:
-                        if not fieldnames:
-                            fieldnames = list(batch[0].keys())
-                            if write_header:
-                                fh.write(",".join(fieldnames) + "\n")
-                                write_header = False
                         _flush(batch, fh, fieldnames)
                         fh.flush()
                         gc.collect()
 
                 if batch:
-                    if not fieldnames:
-                        fieldnames = list(batch[0].keys())
-                        if write_header:
-                            fh.write(",".join(fieldnames) + "\n")
-                            write_header = False
                     _flush(batch, fh, fieldnames)
                     fh.flush()
                 torch.cuda.empty_cache()
             else:
                 logging.info("Skipping Clean Pass (already complete).")
-
-            # Ensure fieldnames populated if only partial prior run exists
-            if not fieldnames and frame_csv_path.exists():
-                with open(frame_csv_path, "r", encoding="utf-8") as fh_r:
-                    fieldnames = fh_r.readline().strip().split(",")
 
             # ── 2. Transformed Conditions Passes ──────────────────────────────
             for cond_tuple in self.conditions:

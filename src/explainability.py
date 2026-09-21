@@ -167,61 +167,121 @@ class ExplainabilityOrchestrator:
             f"Conditions: {len(self.conditions)} (pilot={self.pilot_mode})"
         )
 
+    def _get_completed_conditions(self, frame_csv_path: Path) -> set:
+        """
+        Read existing frame CSV and return set of (transformation) tags already
+        fully written (i.e. every test frame present for that condition).
+        """
+        if not frame_csv_path.exists():
+            return set()
+        try:
+            df = pd.read_csv(frame_csv_path, usecols=["transformation", "video_id", "original_frame_number"], low_memory=False)
+        except Exception:
+            return set()
+
+        expected = len(self.test_df)
+        completed = set()
+        for cond_tag, grp in df.groupby("transformation"):
+            if len(grp) >= expected:
+                completed.add(str(cond_tag))
+        return completed
+
     def run_evaluation(self) -> Dict[str, Any]:
         """
         Execute full explainability evaluation across all conditions and frames.
         Streams rows to disk in batches of 100 to keep peak RAM usage bounded.
+        Supports resume: completed conditions are skipped on restart.
         """
         import gc
         FLUSH_BATCH = 100  # write to disk every N rows
 
         frame_csv_path = self.output_dir / "frame_level_results.csv"
+
+        # ── Determine which conditions are already done ───────────────────────
+        completed_conditions = self._get_completed_conditions(frame_csv_path)
+        if completed_conditions:
+            logging.info(f"Resuming: {len(completed_conditions)} conditions already complete: {sorted(completed_conditions)}")
+
         write_header = not frame_csv_path.exists()
 
-        # Lightweight clean cache: only the minimal fields needed by transformed passes
-        # (pred_fake, prob_fake for prediction-state; cam cache file already on disk)
+        # Lightweight clean cache: pred_fake and prob_fake keyed by (video_id, frame_num)
         clean_cache: Dict[Tuple[str, int], Dict[str, Any]] = {}
+
+        # If clean pass was already done, reload clean predictions from CSV for
+        # transformed-pass stability and prediction-state linkage
+        if "clean" in completed_conditions and frame_csv_path.exists():
+            try:
+                existing = pd.read_csv(
+                    frame_csv_path,
+                    usecols=["transformation", "video_id", "original_frame_number", "pred_fake", "prob_fake"],
+                    low_memory=False,
+                )
+                clean_rows = existing[existing["transformation"] == "clean"]
+                for _, r in clean_rows.iterrows():
+                    key = (str(r["video_id"]), int(r["original_frame_number"]))
+                    clean_cache[key] = {"pred_fake": r["pred_fake"], "prob_fake": r["prob_fake"]}
+                logging.info(f"Loaded {len(clean_cache)} clean reference entries from existing CSV.")
+                del existing, clean_rows
+                gc.collect()
+            except Exception as e:
+                logging.warning(f"Could not reload clean cache from CSV: {e}")
 
         def _flush(rows: List[Dict[str, Any]], fh: Any, cols: List[str]) -> None:
             for rec in rows:
                 fh.write(",".join(str(rec.get(c, "")) for c in cols) + "\n")
             rows.clear()
 
-        with open(frame_csv_path, "a", newline="", encoding="utf-8") as fh:
-            # Determine fieldnames from a probe record (all keys appear in clean pass)
-            probe_row = self.test_df.iloc[0]
-            probe_rec = self._process_frame(probe_row, ("clean", "clean", 0, None), clean_ref=None)
-            fieldnames = list(probe_rec.keys())
+        # Probe once to get fieldnames (only if header not yet written)
+        fieldnames: List[str] = []
+        if frame_csv_path.exists():
+            try:
+                with open(frame_csv_path, "r", encoding="utf-8") as fh_r:
+                    header_line = fh_r.readline().strip()
+                if header_line:
+                    fieldnames = header_line.split(",")
+            except Exception:
+                pass
 
-            if write_header:
-                fh.write(",".join(fieldnames) + "\n")
+        with open(frame_csv_path, "a", newline="", encoding="utf-8") as fh:
 
             # ── 1. Clean Baseline Pass ─────────────────────────────────────────
-            logging.info(f"--- Running Clean Baseline Pass for {self.model_name} (seed {self.seed}) ---")
-            clean_cond = ("clean", "clean", 0, None)
-            batch: List[Dict[str, Any]] = [probe_rec]
-            key0 = (str(probe_row["video_id"]), int(probe_row["original_frame_number"]))
-            clean_cache[key0] = {"pred_fake": probe_rec["pred_fake"], "prob_fake": probe_rec["prob_fake"]}
+            if "clean" not in completed_conditions:
+                logging.info(f"--- Running Clean Baseline Pass for {self.model_name} (seed {self.seed}) ---")
+                clean_cond = ("clean", "clean", 0, None)
+                batch: List[Dict[str, Any]] = []
 
-            for _, row in tqdm(
-                self.test_df.iloc[1:].iterrows(),
-                total=len(self.test_df) - 1,
-                desc="Clean Pass",
-            ):
-                res = self._process_frame(row, clean_cond, clean_ref=None)
-                batch.append(res)
-                key = (str(row["video_id"]), int(row["original_frame_number"]))
-                clean_cache[key] = {"pred_fake": res["pred_fake"], "prob_fake": res["prob_fake"]}
+                for _, row in tqdm(self.test_df.iterrows(), total=len(self.test_df), desc="Clean Pass"):
+                    res = self._process_frame(row, clean_cond, clean_ref=None)
+                    batch.append(res)
+                    key = (str(row["video_id"]), int(row["original_frame_number"]))
+                    clean_cache[key] = {"pred_fake": res["pred_fake"], "prob_fake": res["prob_fake"]}
 
-                if len(batch) >= FLUSH_BATCH:
+                    if len(batch) >= FLUSH_BATCH:
+                        if not fieldnames:
+                            fieldnames = list(batch[0].keys())
+                            if write_header:
+                                fh.write(",".join(fieldnames) + "\n")
+                                write_header = False
+                        _flush(batch, fh, fieldnames)
+                        fh.flush()
+                        gc.collect()
+
+                if batch:
+                    if not fieldnames:
+                        fieldnames = list(batch[0].keys())
+                        if write_header:
+                            fh.write(",".join(fieldnames) + "\n")
+                            write_header = False
                     _flush(batch, fh, fieldnames)
                     fh.flush()
-                    gc.collect()
+                torch.cuda.empty_cache()
+            else:
+                logging.info("Skipping Clean Pass (already complete).")
 
-            if batch:
-                _flush(batch, fh, fieldnames)
-                fh.flush()
-            torch.cuda.empty_cache()
+            # Ensure fieldnames populated if only partial prior run exists
+            if not fieldnames and frame_csv_path.exists():
+                with open(frame_csv_path, "r", encoding="utf-8") as fh_r:
+                    fieldnames = fh_r.readline().strip().split(",")
 
             # ── 2. Transformed Conditions Passes ──────────────────────────────
             for cond_tuple in self.conditions:
@@ -230,7 +290,13 @@ class ExplainabilityOrchestrator:
                     continue
 
                 cond_tag = f"{family}_sev{sev}" if sev > 0 else cond_name
+
+                if cond_tag in completed_conditions:
+                    logging.info(f"Skipping {cond_tag} (already complete).")
+                    continue
+
                 logging.info(f"--- Running Condition: {cond_tag} (param={param}) ---")
+                batch = []
 
                 for _, row in tqdm(self.test_df.iterrows(), total=len(self.test_df), desc=cond_tag):
                     key = (str(row["video_id"]), int(row["original_frame_number"]))
@@ -253,7 +319,7 @@ class ExplainabilityOrchestrator:
         gc.collect()
         logging.info(f"Frame-level CSV complete: {frame_csv_path}")
 
-        # ── 3. Video-Level Aggregation (read streamed CSV) ────────────────────
+        # ── 3. Video-Level Aggregation ────────────────────────────────────────
         frame_df = pd.read_csv(frame_csv_path, low_memory=False)
         video_csv_path = self.output_dir / "video_level_results.csv"
         video_df = self._aggregate_to_video_level(frame_df)

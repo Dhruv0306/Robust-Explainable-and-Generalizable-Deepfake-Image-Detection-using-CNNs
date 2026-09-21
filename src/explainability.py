@@ -273,14 +273,6 @@ class ExplainabilityOrchestrator:
         # 1. Forward inference on transformed image
         prob_fake, pred_fake = self.generator.predict(transformed_rgb)
 
-        # 2. Grad-CAM generation with float32 .npy caching
-        cache_file = self.cache_dir / cond_tag / f"{vid}_frame{fnum:04d}.npy"
-        cam_map = self.generator.get_or_generate_cam(
-            transformed_rgb,
-            cache_path=cache_file,
-            target_shape=(orig_h, orig_w),
-        )
-
         record: Dict[str, Any] = {
             "model": self.model_name,
             "seed": self.seed,
@@ -297,8 +289,16 @@ class ExplainabilityOrchestrator:
             "correct": int(pred_fake == gt_label),
         }
 
-        # 3. Ground-truth Mask & Localization (Fake frames only)
+        # 2. Grad-CAM generation and explainability (Evaluated on fake frames per Plan §3.2)
         if gt_label == 1:
+            cache_file = self.cache_dir / cond_tag / f"{vid}_frame{fnum:04d}.npy"
+            cam_map = self.generator.get_or_generate_cam(
+                transformed_rgb,
+                cache_path=cache_file,
+                target_shape=(orig_h, orig_w),
+            )
+
+            # 3. Ground-truth Mask & Localization
             gt_mask = self.mask_loader.load_face_crop_mask(
                 category=cat,
                 video_id=vid,
@@ -320,21 +320,23 @@ class ExplainabilityOrchestrator:
             # Primary alias
             record["faithfulness"] = record.get(f"faithfulness_{PRIMARY_FAITHFULNESS_METHOD}", np.nan)
 
-        # 5. Stability against Clean Reference
-        if clean_ref is not None and gt_label == 1:
-            clean_cache_file = self.cache_dir / "clean" / f"{vid}_frame{fnum:04d}.npy"
-            if clean_cache_file.exists():
-                cam_clean = np.load(clean_cache_file)
-                stab_res = evaluate_frame_stability(cam_clean, cam_map)
-                record.update(stab_res)
+            # 5. Stability against Clean Reference
+            if clean_ref is not None:
+                clean_cache_file = self.cache_dir / "clean" / f"{vid}_frame{fnum:04d}.npy"
+                if clean_cache_file.exists():
+                    cam_clean = np.load(clean_cache_file)
+                    stab_res = evaluate_frame_stability(cam_clean, cam_map)
+                    record.update(stab_res)
 
-                # Prediction state transitions
-                c_pred = clean_ref["pred_fake"]
-                t_pred = pred_fake
-                record["clean_prob_fake"] = clean_ref["prob_fake"]
-                record["clean_pred_fake"] = c_pred
-                record["prediction_preserved"] = int(c_pred == t_pred)
+        # Prediction state transitions (tracked across all frames if clean_ref provided)
+        if clean_ref is not None:
+            c_pred = clean_ref["pred_fake"]
+            t_pred = pred_fake
+            record["clean_prob_fake"] = clean_ref["prob_fake"]
+            record["clean_pred_fake"] = c_pred
+            record["prediction_preserved"] = int(c_pred == t_pred)
 
+            if gt_label == 1:
                 if c_pred == 1 and t_pred == 1:
                     record["prediction_state"] = "Correct->Correct"
                 elif c_pred == 1 and t_pred == 0:

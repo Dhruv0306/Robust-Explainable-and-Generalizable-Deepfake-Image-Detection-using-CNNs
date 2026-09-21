@@ -203,7 +203,7 @@ def mask_salient_region(
 ) -> np.ndarray:
     """
     Apply intervention masking to the salient region of a face crop.
-    Crucial: Must be applied to raw uint8 RGB image BEFORE model normalization.
+    Optimized for low-memory footprint and zero-allocation sub-region blurring.
 
     Args:
         image_rgb: uint8 RGB numpy array (H, W, 3)
@@ -224,15 +224,35 @@ def mask_salient_region(
         return masked
 
     if method == "blur":
+        # Option 2 Optimization: Blur ONLY the bounding box around the salient mask
+        # Avoids full-image GaussianBlur allocations on large (1080x970) crops
+        rows = np.any(mask_indices, axis=1)
+        cols = np.any(mask_indices, axis=0)
+        rmin, rmax = np.where(rows)[0][[0, -1]]
+        cmin, cmax = np.where(cols)[0][[0, -1]]
+
+        # Pad bounding box slightly to avoid boundary artifact
+        pad = blur_kernel_size
+        h, w = image_rgb.shape[:2]
+        rmin = max(0, rmin - pad)
+        rmax = min(h, rmax + pad + 1)
+        cmin = max(0, cmin - pad)
+        cmax = min(w, cmax + pad + 1)
+
+        sub_region = image_rgb[rmin:rmax, cmin:cmax]
         ksize = blur_kernel_size if blur_kernel_size % 2 == 1 else blur_kernel_size + 1
-        blurred = cv2.GaussianBlur(image_rgb, (ksize, ksize), sigmaX=0)
-        masked[mask_indices] = blurred[mask_indices]
+        blurred_sub = cv2.GaussianBlur(sub_region, (ksize, ksize), sigmaX=0)
+
+        # Apply blurred pixels only to mask inside sub-region
+        sub_mask = mask_indices[rmin:rmax, cmin:cmax]
+        masked_sub = masked[rmin:rmax, cmin:cmax]
+        masked_sub[sub_mask] = blurred_sub[sub_mask]
+        masked[rmin:rmax, cmin:cmax] = masked_sub
 
     elif method == "zero":
         masked[mask_indices] = 0
 
     elif method == "mean":
-        # Compute channel-wise mean across unmasked pixels (or entire image if fully salient)
         unmasked = image_rgb[~mask_indices]
         if len(unmasked) > 0:
             channel_mean = unmasked.mean(axis=0).astype(np.uint8)

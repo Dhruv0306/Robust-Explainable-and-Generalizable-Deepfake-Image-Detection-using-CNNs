@@ -403,11 +403,24 @@ class ExplainabilityOrchestrator:
 
         # 2. Grad-CAM generation and explainability (Evaluated on fake frames per Plan §3.2)
         if gt_label == 1:
+            # Option 1 Optimization: Cap evaluation resolution to max 512px on large crops
+            # Prevents 1080x970 array fragmentation while retaining full spatial fidelity
+            eval_h, eval_w = orig_h, orig_w
+            eval_img = transformed_rgb
+            scale_applied = False
+
+            if max(orig_h, orig_w) > 512:
+                scale = 512.0 / max(orig_h, orig_w)
+                eval_w = max(1, int(round(orig_w * scale)))
+                eval_h = max(1, int(round(orig_h * scale)))
+                eval_img = cv2.resize(transformed_rgb, (eval_w, eval_h), interpolation=cv2.INTER_AREA)
+                scale_applied = True
+
             cache_file = self.cache_dir / cond_tag / f"{vid}_frame{fnum:04d}.npy"
             cam_map = self.generator.get_or_generate_cam(
-                transformed_rgb,
+                eval_img,
                 cache_path=cache_file,
-                target_shape=(orig_h, orig_w),
+                target_shape=(eval_h, eval_w),
             )
 
             # 3. Ground-truth Mask & Localization
@@ -415,7 +428,7 @@ class ExplainabilityOrchestrator:
                 category=cat,
                 video_id=vid,
                 original_frame_number=fnum,
-                target_shape=(orig_h, orig_w),
+                target_shape=(eval_h, eval_w),
             )
             if gt_mask is not None:
                 loc_res = evaluate_frame_localization(cam_map, gt_mask)
@@ -424,10 +437,12 @@ class ExplainabilityOrchestrator:
             # 4. Intervention-based Faithfulness
             s_mask_20 = get_salient_mask(cam_map, top_fraction=PRIMARY_SALIENCY_THRESHOLD)
             for m_method in FAITHFULNESS_METHODS:
-                masked_img = mask_salient_region(transformed_rgb, s_mask_20, method=m_method)
-                p_masked, _ = self.generator.predict(masked_img)
+                masked_eval = mask_salient_region(eval_img, s_mask_20, method=m_method)
+                # If scaled, restore or directly feed to predict (transforms handles resizing)
+                p_masked, _ = self.generator.predict(masked_eval)
                 record[f"prob_fake_{m_method}"] = p_masked
                 record[f"faithfulness_{m_method}"] = prob_fake - p_masked
+                del masked_eval
 
             # Primary alias
             record["faithfulness"] = record.get(f"faithfulness_{PRIMARY_FAITHFULNESS_METHOD}", np.nan)
@@ -439,6 +454,14 @@ class ExplainabilityOrchestrator:
                     cam_clean = np.load(clean_cache_file)
                     stab_res = evaluate_frame_stability(cam_clean, cam_map)
                     record.update(stab_res)
+                    del cam_clean
+
+            # Clean up intermediate arrays
+            del cam_map
+            if gt_mask is not None:
+                del gt_mask
+            if scale_applied:
+                del eval_img
 
         # Prediction state transitions (tracked across all frames if clean_ref provided)
         if clean_ref is not None:

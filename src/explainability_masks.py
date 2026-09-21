@@ -33,6 +33,7 @@ class MaskLoader:
         self.manifest_path = manifest_path
         self._video_caps: Dict[str, cv2.VideoCapture] = {}
         self.bbox_lookup: Dict[Tuple[str, int], List[int]] = {}
+        self._mask_crop_cache: Dict[Tuple[str, str, int], np.ndarray] = {}
 
         if self.manifest_path is not None and self.manifest_path.exists():
             self._build_bbox_lookup()
@@ -148,6 +149,17 @@ class MaskLoader:
         Returns:
             Binary uint8 numpy array of shape (H, W) with values in {0, 1}, or None
         """
+        cache_key = (category, str(video_id), int(original_frame_number))
+        if cache_key in self._mask_crop_cache:
+            cached_bin = self._mask_crop_cache[cache_key]
+            if target_shape is None or cached_bin.shape == target_shape:
+                return cached_bin
+            return cv2.resize(
+                cached_bin.astype(np.float32),
+                (target_shape[1], target_shape[0]),
+                interpolation=cv2.INTER_NEAREST,
+            ).astype(np.uint8)
+
         full_mask = self.load_full_frame_mask(category, video_id, original_frame_number)
         if full_mask is None:
             return None
@@ -174,6 +186,7 @@ class MaskLoader:
 
         # Binarize mask
         bin_mask = (cropped_mask > threshold).astype(np.uint8)
+        self._mask_crop_cache[cache_key] = bin_mask
 
         # Ensure exact match to target_shape if provided
         if target_shape is not None and bin_mask.shape != target_shape:

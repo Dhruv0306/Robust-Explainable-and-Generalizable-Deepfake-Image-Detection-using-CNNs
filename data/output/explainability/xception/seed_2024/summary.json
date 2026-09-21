@@ -1,0 +1,19 @@
+{
+  "model": "xception",
+  "seed": 2024,
+  "pilot_mode": true,
+  "total_frames_evaluated": 100,
+  "total_videos": 4,
+  "conditions_evaluated": [
+    "clean",
+    "jpeg_3",
+    "resize_3",
+    "darkening_3",
+    "brightening_3"
+  ],
+  "checkpoint_path": "E:\\ADM_Project\\Robust-Explainable-and-Generalizable-Deepfake-Image-Detection-using-CNNs\\data\\checkpoints\\xception_LAPTOP-KTKP3V55_2026-09-09_16-00-42\\best_checkpoint.pth",
+  "target_layers": [
+    "Conv2d(1536, 2048, kernel_size=(1, 1), stride=(1, 1), bias=False)"
+  ],
+  "timestamp": "2026-09-21 10:06:51"
+}

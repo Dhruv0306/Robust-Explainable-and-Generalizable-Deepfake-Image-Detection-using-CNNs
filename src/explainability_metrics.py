@@ -303,18 +303,26 @@ def evaluate_frame_stability(
 ) -> Dict[str, Any]:
     """
     Comprehensive explanation stability evaluation between clean and transformed CAMs.
+    Defensively matches spatial resolutions if clean and transformed maps differ.
 
     Returns dict containing:
     - ES_cos (continuous cosine similarity)
     - explanation_IoU@10, explanation_IoU@20 (primary), explanation_IoU@30
     """
+    # Defensive spatial alignment: match clean map to transformed map shape
+    c_clean = cam_clean
+    if cam_clean.shape != cam_transformed.shape:
+        th, tw = cam_transformed.shape[:2]
+        c_clean = cv2.resize(cam_clean.astype(np.float32), (tw, th), interpolation=cv2.INTER_LINEAR)
+        c_clean = np.clip(c_clean, 0.0, 1.0)
+
     results: Dict[str, Any] = {
-        "ES_cos": compute_explanation_cosine_similarity(cam_clean, cam_transformed),
+        "ES_cos": compute_explanation_cosine_similarity(c_clean, cam_transformed),
     }
 
     for frac in thresholds:
         pct = int(frac * 100)
-        sc = get_salient_mask(cam_clean, top_fraction=frac)
+        sc = get_salient_mask(c_clean, top_fraction=frac)
         st = get_salient_mask(cam_transformed, top_fraction=frac)
         results[f"explanation_IoU@{pct}"] = compute_explanation_iou(sc, st)
 

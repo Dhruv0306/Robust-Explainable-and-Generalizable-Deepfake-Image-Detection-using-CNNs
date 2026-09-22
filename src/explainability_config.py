@@ -1,48 +1,40 @@
 """
-Approach 3: Explainability and Explanation Robustness Configuration.
-All explainability constants, thresholds, paths, and parameters.
+Approach 3 configuration.
+
+The corrected run uses a fresh output namespace so results generated with the
+previous cache identity are not reused.
 """
-from pathlib import Path
-from typing import Dict, Any, List
 
-# Output root for explainability artifacts
-EXPLAINABILITY_OUTPUT_DIR = "explainability"
+EXPLAINABILITY_OUTPUT_DIR = "explainability_corrected_v1"
 
-# Approach 1 Model candidates
 EXPLAINABILITY_MODELS = ["xception", "efficientnet_b0", "resnet50"]
 
-# Saliency threshold percentiles (top 20% primary, 10% and 30% sensitivity)
 PRIMARY_SALIENCY_THRESHOLD = 0.20
 SENSITIVITY_SALIENCY_THRESHOLDS = [0.10, 0.20, 0.30]
 
-# Faithfulness masking methods
 FAITHFULNESS_METHODS = ["blur", "zero", "mean"]
 PRIMARY_FAITHFULNESS_METHOD = "blur"
 
-# Explanation stability threshold for binary descriptive grouping
-EXPLANATION_STABILITY_THRESHOLD = 0.90
+# This is a descriptive threshold, not a significance threshold.
+EXPLANATION_STABILITY_THRESHOLD = 0.80
 
-# Minimum sample size rules for statistical validity
-MIN_SAMPLE_WILCOXON = 6   # min non-zero paired differences
-MIN_SAMPLE_SPEARMAN = 6   # min paired observations
+MIN_SAMPLE_WILCOXON = 6
+MIN_SAMPLE_SPEARMAN = 6
 BOOTSTRAP_ROUNDS = 1000
 BOOTSTRAP_SEED = 42
 
-# FDR correction families
 FDR_FAMILIES = {
     "family_1_localization": ["SO", "IoU", "saliency_mass", "hit_rate"],
     "family_2_faithfulness": ["blur", "zero", "mean"],
     "family_3_stability": ["ES_cos", "explanation_IoU"],
     "family_4a_loc_faith": ["SO_vs_faith", "IoU_vs_faith", "saliency_mass_vs_faith"],
     "family_4b_det_exp_deg": [
-        "DF1_vs_DSO",
-        "DF1_vs_DIoU",
-        "DF1_vs_Dstability",
-        "DF1_vs_Dfaith",
+        "Dprob_vs_DSO",
+        "Dprob_vs_DIoU",
+        "Dprob_vs_Dstability",
     ],
 }
 
-# 12 Core transformations to evaluate (from Approach 2)
 CORE_ROBUSTNESS_CONDITIONS = [
     ("clean", "clean", 0, None),
     ("jpeg", "jpeg", 1, 80),
@@ -60,16 +52,12 @@ CORE_ROBUSTNESS_CONDITIONS = [
 ]
 
 
-def get_mask_path_for_video(dataset_root: Path, category: str, video_id: str) -> Path:
-    """
-    Resolve path to FaceForensics++ ground-truth manipulation mask video.
-
-    Args:
-        dataset_root: Path to data/datasets/FaceForensics++
-        category: 'Deepfakes', 'Face2Face', 'FaceSwap', or 'NeuralTextures'
-        video_id: e.g. '033_097'
-
-    Returns:
-        Path to mask video (e.g., .../Deepfakes/masks/videos/033_097.mp4)
-    """
-    return dataset_root / "manipulated_sequences" / category / "masks" / "videos" / f"{video_id}.mp4"
+def get_mask_path_for_video(dataset_root, category, video_id):
+    return (
+        dataset_root
+        / "manipulated_sequences"
+        / category
+        / "masks"
+        / "videos"
+        / f"{video_id}.mp4"
+    )

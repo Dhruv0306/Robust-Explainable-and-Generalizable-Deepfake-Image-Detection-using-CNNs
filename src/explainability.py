@@ -21,6 +21,7 @@ import numpy as np
 import pandas as pd
 import torch
 from tqdm import tqdm
+from scipy.stats import spearmanr
 
 # Append src to path
 SRC_ROOT = Path(__file__).parent
@@ -169,20 +170,25 @@ class ExplainabilityOrchestrator:
 
     def _get_completed_conditions(self, frame_csv_path: Path) -> set:
         """
-        Read existing frame CSV and return set of (transformation) tags already
-        fully written (i.e. every test frame present for that condition).
+        Read existing frame CSV and return set of transformation tags already
+        fully written with unique (category, video_id, original_frame_number).
         """
         if not frame_csv_path.exists():
             return set()
         try:
-            df = pd.read_csv(frame_csv_path, usecols=["transformation", "video_id", "original_frame_number"], low_memory=False)
+            df = pd.read_csv(
+                frame_csv_path,
+                usecols=["category", "video_id", "original_frame_number", "transformation"],
+                low_memory=False,
+            )
         except Exception:
             return set()
 
         expected = len(self.test_df)
         completed = set()
         for cond_tag, grp in df.groupby("transformation"):
-            if len(grp) >= expected:
+            unique_samples = grp.drop_duplicates(subset=["category", "video_id", "original_frame_number"])
+            if len(unique_samples) >= expected:
                 completed.add(str(cond_tag))
         return completed
 
@@ -204,8 +210,8 @@ class ExplainabilityOrchestrator:
 
         write_header = not frame_csv_path.exists()
 
-        # Lightweight clean cache: pred_fake and prob_fake keyed by (video_id, frame_num)
-        clean_cache: Dict[Tuple[str, int], Dict[str, Any]] = {}
+        # Lightweight clean cache: pred_fake and prob_fake keyed by (category, video_id, frame_num)
+        clean_cache: Dict[Tuple[str, str, int], Dict[str, Any]] = {}
 
         # If clean pass was already done, reload clean predictions from CSV for
         # transformed-pass stability and prediction-state linkage
@@ -213,12 +219,14 @@ class ExplainabilityOrchestrator:
             try:
                 existing = pd.read_csv(
                     frame_csv_path,
-                    usecols=["transformation", "video_id", "original_frame_number", "pred_fake", "prob_fake"],
+                    usecols=["category", "video_id", "original_frame_number", "transformation", "pred_fake", "prob_fake"],
                     low_memory=False,
                 )
-                clean_rows = existing[existing["transformation"] == "clean"]
+                clean_rows = existing[existing["transformation"] == "clean"].drop_duplicates(
+                    subset=["category", "video_id", "original_frame_number"]
+                )
                 for _, r in clean_rows.iterrows():
-                    key = (str(r["video_id"]), int(r["original_frame_number"]))
+                    key = (str(r["category"]), str(r["video_id"]), int(r["original_frame_number"]))
                     clean_cache[key] = {"pred_fake": r["pred_fake"], "prob_fake": r["prob_fake"]}
                 logging.info(f"Loaded {len(clean_cache)} clean reference entries from existing CSV.")
                 del existing, clean_rows
@@ -261,7 +269,7 @@ class ExplainabilityOrchestrator:
                 for _, row in tqdm(self.test_df.iterrows(), total=len(self.test_df), desc="Clean Pass"):
                     res = self._process_frame(row, clean_cond, clean_ref=None)
                     batch.append(res)
-                    key = (str(row["video_id"]), int(row["original_frame_number"]))
+                    key = (str(row["category"]), str(row["video_id"]), int(row["original_frame_number"]))
                     clean_cache[key] = {"pred_fake": res["pred_fake"], "prob_fake": res["prob_fake"]}
 
                     if len(batch) >= FLUSH_BATCH:
@@ -292,7 +300,7 @@ class ExplainabilityOrchestrator:
                 batch = []
 
                 for _, row in tqdm(self.test_df.iterrows(), total=len(self.test_df), desc=cond_tag):
-                    key = (str(row["video_id"]), int(row["original_frame_number"]))
+                    key = (str(row["category"]), str(row["video_id"]), int(row["original_frame_number"]))
                     clean_ref = clean_cache.get(key)
                     res = self._process_frame(row, cond_tuple, clean_ref=clean_ref)
                     batch.append(res)
@@ -314,6 +322,12 @@ class ExplainabilityOrchestrator:
 
         # ── 3. Video-Level Aggregation ────────────────────────────────────────
         frame_df = pd.read_csv(frame_csv_path, low_memory=False)
+        # Deduplicate strictly on sample identity + transformation
+        frame_df = frame_df.drop_duplicates(
+            subset=["category", "video_id", "original_frame_number", "transformation"]
+        ).reset_index(drop=True)
+        frame_df.to_csv(frame_csv_path, index=False)
+
         video_csv_path = self.output_dir / "video_level_results.csv"
         video_df = self._aggregate_to_video_level(frame_df)
         del frame_df
@@ -325,6 +339,7 @@ class ExplainabilityOrchestrator:
         stats_csv_path = self.output_dir / "statistics_results.csv"
         stats_results = self._run_statistical_analysis(video_df)
         stats_results.to_csv(stats_csv_path, index=False)
+        logging.info(f"Saved statistical test results ({len(stats_results)} rows) to: {stats_csv_path}")
         logging.info(f"Saved statistical test results ({len(stats_results)} rows) to: {stats_csv_path}")
 
         # ── 5. Global Summary Metadata ────────────────────────────────────────
@@ -416,7 +431,8 @@ class ExplainabilityOrchestrator:
                 eval_img = cv2.resize(transformed_rgb, (eval_w, eval_h), interpolation=cv2.INTER_AREA)
                 scale_applied = True
 
-            cache_file = self.cache_dir / cond_tag / f"{vid}_frame{fnum:04d}.npy"
+            # Cache key includes category to avoid cross-category collisions
+            cache_file = self.cache_dir / cond_tag / f"{cat}_{vid}_frame{fnum:04d}.npy"
             cam_map = self.generator.get_or_generate_cam(
                 eval_img,
                 cache_path=cache_file,
@@ -437,31 +453,38 @@ class ExplainabilityOrchestrator:
             # 4. Intervention-based Faithfulness
             s_mask_20 = get_salient_mask(cam_map, top_fraction=PRIMARY_SALIENCY_THRESHOLD)
             for m_method in FAITHFULNESS_METHODS:
-                masked_eval = mask_salient_region(eval_img, s_mask_20, method=m_method)
-                # If scaled, restore or directly feed to predict (transforms handles resizing)
-                p_masked, _ = self.generator.predict(masked_eval)
+                # Apply masking at original resolution (eval_img may be downscaled)
+                if scale_applied:
+                    # Upsample mask to original resolution
+                    mask_orig = cv2.resize(
+                        s_mask_20.astype(np.float32),
+                        (orig_w, orig_h),
+                        interpolation=cv2.INTER_NEAREST
+                    )
+                    masked_orig = mask_salient_region(transformed_rgb, mask_orig, method=m_method)
+                    p_masked, _ = self.generator.predict(masked_orig)
+                    del masked_orig
+                else:
+                    masked_eval = mask_salient_region(eval_img, s_mask_20, method=m_method)
+                    p_masked, _ = self.generator.predict(masked_eval)
+                    del masked_eval
                 record[f"prob_fake_{m_method}"] = p_masked
                 record[f"faithfulness_{m_method}"] = prob_fake - p_masked
-                del masked_eval
 
             # Primary alias
             record["faithfulness"] = record.get(f"faithfulness_{PRIMARY_FAITHFULNESS_METHOD}", np.nan)
 
             # 5. Stability against Clean Reference
             if clean_ref is not None:
-                clean_cache_file = self.cache_dir / "clean" / f"{vid}_frame{fnum:04d}.npy"
+                clean_cache_file = self.cache_dir / "clean" / f"{cat}_{vid}_frame{fnum:04d}.npy"
                 if clean_cache_file.exists():
                     cam_clean = np.load(clean_cache_file)
+                    # Resize clean CAM to current eval resolution if shapes differ
+                    if cam_clean.shape != (eval_h, eval_w):
+                        cam_clean = cv2.resize(cam_clean, (eval_w, eval_h), interpolation=cv2.INTER_LINEAR)
                     stab_res = evaluate_frame_stability(cam_clean, cam_map)
                     record.update(stab_res)
                     del cam_clean
-
-            # Clean up intermediate arrays
-            del cam_map
-            if gt_mask is not None:
-                del gt_mask
-            if scale_applied:
-                del eval_img
 
         # Prediction state transitions (tracked across all frames if clean_ref provided)
         if clean_ref is not None:
@@ -486,12 +509,14 @@ class ExplainabilityOrchestrator:
     def _aggregate_to_video_level(self, frame_df: pd.DataFrame) -> pd.DataFrame:
         """
         Aggregate scalar metrics from frame to video level using mean aggregation.
+        Groups by (model, seed, category, video_id, transformation) to ensure
+        correct aggregation across categories.
         """
         group_cols = [
             "model",
             "seed",
-            "video_id",
             "category",
+            "video_id",
             "ground_truth",
             "transformation",
             "transformation_family",
@@ -583,6 +608,90 @@ class ExplainabilityOrchestrator:
                         "test_family": "family_2_faithfulness",
                     })
                     stat_rows.append(w)
+
+        # Family 3: Explanation Stability
+        for cond in fake_videos["transformation"].unique():
+            if cond == "clean":
+                continue
+            trans_subset = fake_videos[fake_videos["transformation"] == cond].set_index("video_id")
+            common_vids = clean_fake.index.intersection(trans_subset.index)
+            if len(common_vids) == 0:
+                continue
+            c_sub = clean_fake.loc[common_vids]
+            t_sub = trans_subset.loc[common_vids]
+            for metric in ["ES_cos", "explanation_IoU"]:
+                if metric in c_sub.columns and metric in t_sub.columns:
+                    w = run_paired_wilcoxon_test(c_sub[metric].values, t_sub[metric].values)
+                    w.update({
+                        "model": self.model_name,
+                        "seed": self.seed,
+                        "transformation": cond,
+                        "metric": metric,
+                        "test_family": "family_3_stability",
+                    })
+                    stat_rows.append(w)
+
+        # Family 4a: Localization-Faithfulness Relationships (Spearman)
+        for cond in fake_videos["transformation"].unique():
+            if cond == "clean":
+                continue
+            trans_subset = fake_videos[fake_videos["transformation"] == cond].set_index("video_id")
+            common_vids = clean_fake.index.intersection(trans_subset.index)
+            if len(common_vids) == 0:
+                continue
+            c_sub = clean_fake.loc[common_vids]
+            t_sub = trans_subset.loc[common_vids]
+            for loc_metric, loc_name in [("SO", "SO"), ("IoU", "IoU"), ("saliency_mass", "SM")]:
+                for faith_metric, faith_name in [("faithfulness_blur", "blur"), ("faithfulness_zero", "zero"), ("faithfulness_mean", "mean")]:
+                    if loc_metric in c_sub.columns and faith_metric in c_sub.columns:
+                        rho, p = spearmanr(c_sub[loc_metric].values, c_sub[faith_metric].values)
+                        stat_rows.append({
+                            "model": self.model_name,
+                            "seed": self.seed,
+                            "transformation": cond,
+                            "metric": f"{loc_name}_vs_{faith_name}",
+                            "test_family": "family_4a_loc_faith",
+                            "n_valid": int(len(common_vids)),
+                            "rho": float(rho),
+                            "raw_p": float(p),
+                            "adjusted_p": float("nan"),
+                            "r_rb": float("nan"),
+                            "ci_lower": float("nan"),
+                            "ci_upper": float("nan"),
+                            "test_status": "tested" if len(common_vids) >= MIN_SAMPLE_SPEARMAN else "not_tested_small_n",
+                        })
+
+        # Family 4b: Detector-Explanation Degradation Relationships (Spearman)
+        # First compute D_F1 using Approach 2 results if available, or use prob_fake degradation
+        for cond in fake_videos["transformation"].unique():
+            if cond == "clean":
+                continue
+            trans_subset = fake_videos[fake_videos["transformation"] == cond].set_index("video_id")
+            common_vids = clean_fake.index.intersection(trans_subset.index)
+            if len(common_vids) == 0:
+                continue
+            c_sub = clean_fake.loc[common_vids]
+            t_sub = trans_subset.loc[common_vids]
+            d_p = (c_sub["prob_fake"] - t_sub["prob_fake"]).values
+            for exp_metric, exp_name in [("SO", "DSO"), ("IoU", "DIoU"), ("ES_cos", "Dstability")]:
+                if exp_metric in c_sub.columns and exp_metric in t_sub.columns:
+                    d_exp = (c_sub[exp_metric] - t_sub[exp_metric]).values
+                    rho, p = spearmanr(d_p, d_exp)
+                    stat_rows.append({
+                        "model": self.model_name,
+                        "seed": self.seed,
+                        "transformation": cond,
+                        "metric": f"Dprob_vs_{exp_name}",
+                        "test_family": "family_4b_det_exp_deg",
+                        "n_valid": int(len(common_vids)),
+                        "rho": float(rho),
+                        "raw_p": float(p),
+                        "adjusted_p": float("nan"),
+                        "r_rb": float("nan"),
+                        "ci_lower": float("nan"),
+                        "ci_upper": float("nan"),
+                        "test_status": "tested" if len(common_vids) >= MIN_SAMPLE_SPEARMAN else "not_tested_small_n",
+                    })
 
         stats_df = pd.DataFrame(stat_rows)
         if not stats_df.empty:

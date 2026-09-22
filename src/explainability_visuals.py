@@ -56,7 +56,8 @@ def generate_global_heatmaps(
         for _, row in cat_df.iterrows():
             vid = str(row["video_id"])
             fnum = int(row["original_frame_number"])
-            npy_path = cache_dir / "clean" / f"{vid}_frame{fnum:04d}.npy"
+            c_name = str(row["category"])
+            npy_path = cache_dir / "clean" / f"{c_name}_{vid}_frame{fnum:04d}.npy"
 
             if npy_path.exists():
                 try:
@@ -135,7 +136,7 @@ def _save_single_clean_panel(
             return None
         h, w = img_bgr.shape[:2]
 
-        npy_path = cache_dir / "clean" / f"{vid}_frame{fnum:04d}.npy"
+        npy_path = cache_dir / "clean" / f"{cat}_{vid}_frame{fnum:04d}.npy"
         if not npy_path.exists():
             return None
 

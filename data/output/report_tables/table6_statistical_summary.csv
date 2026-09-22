@@ -1,0 +1,16 @@
+Model,FDR Family,Total Tests,Significant (p_adj < 0.05),Percentage,Min p_adj
+XCEPTION,family_1_localization,48,40,83.3%,5.90e-08
+XCEPTION,family_2_faithfulness,36,20,55.6%,1.93e-08
+XCEPTION,family_3_stability,24,0,0.0%,N/A
+XCEPTION,family_4a_loc_faith,108,12,11.1%,4.96e-02
+XCEPTION,family_4b_det_exp_deg,36,24,66.7%,7.48e-09
+EFFICIENTNET_B0,family_1_localization,48,43,89.6%,2.36e-08
+EFFICIENTNET_B0,family_2_faithfulness,36,10,27.8%,9.28e-05
+EFFICIENTNET_B0,family_3_stability,24,0,0.0%,N/A
+EFFICIENTNET_B0,family_4a_loc_faith,108,96,88.9%,1.13e-04
+EFFICIENTNET_B0,family_4b_det_exp_deg,36,18,50.0%,6.30e-07
+RESNET50,family_1_localization,48,36,75.0%,3.57e-08
+RESNET50,family_2_faithfulness,36,30,83.3%,1.55e-08
+RESNET50,family_3_stability,24,0,0.0%,N/A
+RESNET50,family_4a_loc_faith,108,0,0.0%,N/A
+RESNET50,family_4b_det_exp_deg,36,24,66.7%,6.86e-18

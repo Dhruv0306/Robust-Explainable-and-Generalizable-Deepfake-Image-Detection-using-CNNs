@@ -5,11 +5,12 @@ map normalization and upsampling, disk caching (.npy), and memory-safe batch-siz
 """
 import logging
 from pathlib import Path
-from typing import Dict, Any, Optional, Tuple, Union
+from typing import Dict, Any, Optional, Tuple
+
+import cv2
 import numpy as np
 import torch
-import torch.nn as nn
-import cv2
+
 from pytorch_grad_cam import GradCAM
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 
@@ -35,105 +36,98 @@ class GradCAMGenerator:
         checkpoint_path: Path,
         device: torch.device,
     ):
-        """
-        Initialize model and Grad-CAM wrapper.
-
-        Args:
-            model_name: 'xception', 'efficientnet_b0', or 'resnet50'
-            checkpoint_path: Path to best_checkpoint.pth
-            device: torch.device ('cuda' or 'cpu')
-        """
         self.model_name = model_name
         self.checkpoint_path = Path(checkpoint_path)
         self.device = device
         self.input_size = get_model_input_size(model_name)
         self.transform = get_transforms(model_name, is_train=False)
 
-        # Build and load model
         self.model = create_model(model_name, pretrained=False).to(self.device)
         self._load_checkpoint()
         self.model.eval()
 
-        # Resolve target layer
         self.target_layers = get_target_layer(model_name, self.model)
         self.cam = GradCAM(model=self.model, target_layers=self.target_layers)
-
-        # Single-logit binary target: index 0
         self.targets = [ClassifierOutputTarget(0)]
+        self._closed = False
 
     def _load_checkpoint(self) -> None:
         """Load weights from checkpoint file with fallback key handling."""
         if not self.checkpoint_path.exists():
             raise FileNotFoundError(f"Checkpoint not found at: {self.checkpoint_path}")
 
-        logging.info(f"Loading checkpoint for {self.model_name} from {self.checkpoint_path}")
+        logging.info(
+            "Loading checkpoint for %s from %s",
+            self.model_name,
+            self.checkpoint_path,
+        )
         checkpoint = torch.load(
             self.checkpoint_path,
             map_location=self.device,
             weights_only=False,
         )
 
-        state_dict = checkpoint.get("model_state_dict", checkpoint.get("state_dict", checkpoint))
+        state_dict = checkpoint.get(
+            "model_state_dict",
+            checkpoint.get("state_dict", checkpoint),
+        )
         self.model.load_state_dict(state_dict)
+        del checkpoint, state_dict
 
     def predict(self, face_crop_rgb: np.ndarray) -> Tuple[float, int]:
-        """
-        Run forward inference on face crop in inference_mode.
-
-        Args:
-            face_crop_rgb: uint8 RGB numpy array (H, W, 3)
-
-        Returns:
-            Tuple of (prob_fake: float, pred_fake: int)
-        """
+        """Run forward inference on a face crop in inference mode."""
         tensor = self.transform(face_crop_rgb).unsqueeze(0).to(self.device)
-        with torch.inference_mode():
-            logit = self.model(tensor).squeeze()
-            prob = torch.sigmoid(logit).item()
-        return float(prob), int(prob >= 0.5)
+        try:
+            with torch.inference_mode():
+                logit = self.model(tensor).squeeze()
+                prob = torch.sigmoid(logit).item()
+            return float(prob), int(prob >= 0.5)
+        finally:
+            # The returned values are Python scalars, so the input tensor and
+            # forward intermediates no longer need to remain referenced here.
+            del tensor
+            if "logit" in locals():
+                del logit
 
     def generate_cam(
         self,
         face_crop_rgb: np.ndarray,
         target_shape: Optional[Tuple[int, int]] = None,
     ) -> np.ndarray:
-        """
-        Generate normalized Grad-CAM map targeting the fake-class logit.
-
-        Args:
-            face_crop_rgb: uint8 RGB numpy array (H, W, 3)
-            target_shape: (H, W) to upsample CAM to. If None, uses face_crop_rgb.shape[:2]
-
-        Returns:
-            Normalized float32 numpy array (H, W) in range [0.0, 1.0]
-        """
+        """Generate a normalized Grad-CAM map targeting the fake-class logit."""
         if target_shape is None:
             target_shape = face_crop_rgb.shape[:2]
 
         tensor = self.transform(face_crop_rgb).unsqueeze(0).to(self.device)
-
-        # Gradients must be enabled for Grad-CAM
-        grayscale_cam = self.cam(input_tensor=tensor, targets=self.targets)
-        cam_map = grayscale_cam[0].astype(np.float32)
-
-        # Normalize to [0.0, 1.0] defensively
-        cam_min, cam_max = float(cam_map.min()), float(cam_map.max())
-        if cam_max - cam_min > 1e-7:
-            cam_map = (cam_map - cam_min) / (cam_max - cam_min)
-        else:
-            cam_map = np.zeros_like(cam_map, dtype=np.float32)
-
-        # Upsample to target face-crop dimensions if needed
-        if cam_map.shape != target_shape:
-            cam_map = cv2.resize(
-                cam_map,
-                (target_shape[1], target_shape[0]),
-                interpolation=cv2.INTER_LINEAR,
+        try:
+            # Gradients must remain enabled for Grad-CAM.
+            grayscale_cam = self.cam(
+                input_tensor=tensor,
+                targets=self.targets,
             )
-            # Re-clip to [0, 1] following interpolation
-            cam_map = np.clip(cam_map, 0.0, 1.0)
+            cam_map = grayscale_cam[0].astype(np.float32)
 
-        return cam_map.astype(np.float32)
+            cam_min, cam_max = float(cam_map.min()), float(cam_map.max())
+            if cam_max - cam_min > 1e-7:
+                cam_map = (cam_map - cam_min) / (cam_max - cam_min)
+            else:
+                cam_map = np.zeros_like(cam_map, dtype=np.float32)
+
+            if cam_map.shape != target_shape:
+                cam_map = cv2.resize(
+                    cam_map,
+                    (target_shape[1], target_shape[0]),
+                    interpolation=cv2.INTER_LINEAR,
+                )
+                cam_map = np.clip(cam_map, 0.0, 1.0)
+
+            return cam_map.astype(np.float32)
+        finally:
+            # pytorch-grad-cam handles its internal activation/gradient state,
+            # while this releases our frame-local tensor reference immediately.
+            del tensor
+            if "grayscale_cam" in locals():
+                del grayscale_cam
 
     def get_or_generate_cam(
         self,
@@ -141,17 +135,7 @@ class GradCAMGenerator:
         cache_path: Optional[Path] = None,
         target_shape: Optional[Tuple[int, int]] = None,
     ) -> np.ndarray:
-        """
-        Get Grad-CAM map from disk cache if present, else compute and save.
-
-        Args:
-            face_crop_rgb: uint8 RGB numpy array (H, W, 3)
-            cache_path: Optional destination Path for .npy file
-            target_shape: (H, W) target spatial dimensions
-
-        Returns:
-            Normalized float32 numpy array (H, W)
-        """
+        """Get Grad-CAM from cache or compute and save it."""
         if target_shape is None:
             target_shape = face_crop_rgb.shape[:2]
 
@@ -159,22 +143,58 @@ class GradCAMGenerator:
             try:
                 cached = np.load(cache_path)
                 if cached.shape == target_shape and np.isfinite(cached).all():
-                    return cached.astype(np.float32)
-            except Exception as e:
-                logging.warning(f"Cache read error for {cache_path}: {e}. Recomputing.")
+                    result = cached.astype(np.float32)
+                    del cached
+                    return result
+                del cached
+            except Exception as exc:
+                logging.warning(
+                    "Cache read error for %s: %s. Recomputing.",
+                    cache_path,
+                    exc,
+                )
 
-        # Compute CAM
         cam_map = self.generate_cam(face_crop_rgb, target_shape=target_shape)
 
-        # Save to cache if path provided
         if cache_path is not None:
             try:
                 cache_path.parent.mkdir(parents=True, exist_ok=True)
                 np.save(cache_path, cam_map)
-            except Exception as e:
-                logging.warning(f"Failed to save Grad-CAM cache to {cache_path}: {e}")
+            except Exception as exc:
+                logging.warning(
+                    "Failed to save Grad-CAM cache to %s: %s",
+                    cache_path,
+                    exc,
+                )
 
         return cam_map
+
+    def close(self) -> None:
+        """Release Grad-CAM hooks and model references at model lifecycle end."""
+        if self._closed:
+            return
+
+        try:
+            cam = getattr(self, "cam", None)
+            if cam is not None:
+                activations_and_grads = getattr(cam, "activations_and_grads", None)
+                if activations_and_grads is not None:
+                    release = getattr(activations_and_grads, "release", None)
+                    if callable(release):
+                        release()
+                self.cam = None
+        except Exception as exc:
+            logging.warning("Failed to release Grad-CAM hooks: %s", exc)
+        finally:
+            self.targets = None
+            if getattr(self, "model", None) is not None:
+                self.model.zero_grad(set_to_none=True)
+                self.model = None
+            self.target_layers = None
+            self._closed = True
+
+        if self.device.type == "cuda" and torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
 
 def load_gradcam_generator(
@@ -184,19 +204,7 @@ def load_gradcam_generator(
     device: torch.device,
     target_seed: Optional[int] = None,
 ) -> Tuple[GradCAMGenerator, Dict[str, Any]]:
-    """
-    Convenience factory to select best seed and instantiate GradCAMGenerator.
-
-    Args:
-        model_name: 'xception', 'efficientnet_b0', or 'resnet50'
-        output_dir: Path to data/output/
-        checkpoint_dir: Path to data/checkpoints/
-        device: torch.device
-        target_seed: Optional manual seed override
-
-    Returns:
-        Tuple of (GradCAMGenerator, run_metadata_dict)
-    """
+    """Convenience factory to select best seed and instantiate GradCAMGenerator."""
     run_info = select_best_seed(
         model_name=model_name,
         output_dir=output_dir,
@@ -226,6 +234,12 @@ if __name__ == "__main__":
         dummy_crop = np.random.randint(0, 256, (150, 120, 3), dtype=np.uint8)
         prob, pred = gen.predict(dummy_crop)
         cam = gen.generate_cam(dummy_crop)
-        print(f"[{m.upper()} seed {info['seed']}] prob={prob:.4f}, pred={pred}, cam shape={cam.shape}, min={cam.min():.4f}, max={cam.max():.4f}")
+        print(
+            f"[{m.upper()} seed {info['seed']}] prob={prob:.4f}, pred={pred}, "
+            f"cam shape={cam.shape}, min={cam.min():.4f}, max={cam.max():.4f}"
+        )
         assert cam.shape == (150, 120), f"Expected (150, 120), got {cam.shape}"
-        assert 0.0 <= cam.min() and cam.max() <= 1.0, f"CAM out of range [0, 1]: min={cam.min()}, max={cam.max()}"
+        assert 0.0 <= cam.min() and cam.max() <= 1.0, (
+            f"CAM out of range [0, 1]: min={cam.min()}, max={cam.max()}"
+        )
+        gen.close()

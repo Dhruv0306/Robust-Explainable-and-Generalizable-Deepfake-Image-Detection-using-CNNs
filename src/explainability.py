@@ -118,10 +118,8 @@ class ExplainabilityOrchestrator:
             self.conditions = CORE_ROBUSTNESS_CONDITIONS
 
         self.output_dir = (
-            OUTPUT_ROOT
-            / EXPLAINABILITY_OUTPUT_DIR
-            / self.model_name
-            / f"seed_{self.seed}"
+            OUTPUT_ROOT / EXPLAINABILITY_OUTPUT_DIR
+            / self.model_name / f"seed_{self.seed}"
         )
         self.cache_dir = self.output_dir / "cache" / "gradcam"
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -153,7 +151,8 @@ class ExplainabilityOrchestrator:
                 )
             ].copy()
             self.test_df = (
-                self.test_df.groupby(["category", "video_id"], group_keys=False)
+                self.test_df
+                .groupby(["category", "video_id"], group_keys=False)
                 .head(5)
                 .copy()
             )
@@ -175,11 +174,9 @@ class ExplainabilityOrchestrator:
     def _validate_manifest_samples(self) -> None:
         duplicated = self.test_df.duplicated(self.sample_cols, keep=False)
         if duplicated.any():
-            rows = (
-                self.test_df.loc[duplicated, self.sample_cols]
-                .head(10)
-                .to_dict("records")
-            )
+            rows = self.test_df.loc[
+                duplicated, self.sample_cols
+            ].head(10).to_dict("records")
             raise RuntimeError(
                 "Test manifest contains duplicate sample identities. "
                 f"Examples: {rows}"
@@ -213,9 +210,7 @@ class ExplainabilityOrchestrator:
             "transformation",
         }
         if not required.issubset(df.columns):
-            logging.warning(
-                "Existing frame CSV has an incompatible schema. Rebuilding it."
-            )
+            logging.warning("Existing frame CSV has an incompatible schema. Rebuilding it.")
             frame_csv_path.unlink()
             return set()
 
@@ -243,10 +238,7 @@ class ExplainabilityOrchestrator:
                 logging.warning(
                     "Removing incomplete/duplicate condition '%s' from resume CSV "
                     "(rows=%d, unique_keys=%d, expected=%d).",
-                    cond,
-                    len(group),
-                    len(keys),
-                    len(expected),
+                    cond, len(group), len(keys), len(expected),
                 )
 
         if len(keep_conditions) != df["transformation"].nunique():
@@ -261,46 +253,17 @@ class ExplainabilityOrchestrator:
     @staticmethod
     def _fieldnames() -> List[str]:
         return [
-            "model",
-            "seed",
-            "video_id",
-            "original_frame_number",
-            "frame_path",
-            "category",
-            "ground_truth",
-            "transformation",
-            "transformation_family",
-            "severity",
-            "prob_fake",
-            "pred_fake",
-            "correct",
-            "saliency_mass",
-            "hit_rate",
-            "saliency_entropy",
-            "SO@10",
-            "IoU@10",
-            "SO@20",
-            "IoU@20",
-            "SO@30",
-            "IoU@30",
-            "SO",
-            "IoU",
-            "prob_fake_blur",
-            "faithfulness_blur",
-            "prob_fake_zero",
-            "faithfulness_zero",
-            "prob_fake_mean",
-            "faithfulness_mean",
-            "faithfulness",
-            "clean_prob_fake",
-            "clean_pred_fake",
-            "prediction_preserved",
-            "ES_cos",
-            "explanation_IoU@10",
-            "explanation_IoU@20",
-            "explanation_IoU@30",
-            "explanation_IoU",
-            "prediction_state",
+            "model", "seed", "video_id", "original_frame_number", "frame_path",
+            "category", "ground_truth", "transformation", "transformation_family",
+            "severity", "prob_fake", "pred_fake", "correct",
+            "saliency_mass", "hit_rate", "saliency_entropy",
+            "SO@10", "IoU@10", "SO@20", "IoU@20", "SO@30", "IoU@30", "SO", "IoU",
+            "prob_fake_blur", "faithfulness_blur",
+            "prob_fake_zero", "faithfulness_zero",
+            "prob_fake_mean", "faithfulness_mean", "faithfulness",
+            "clean_prob_fake", "clean_pred_fake", "prediction_preserved",
+            "ES_cos", "explanation_IoU@10", "explanation_IoU@20",
+            "explanation_IoU@30", "explanation_IoU", "prediction_state",
         ]
 
     def _validate_final_frame_csv(self, frame_csv_path: Path) -> pd.DataFrame:
@@ -360,7 +323,9 @@ class ExplainabilityOrchestrator:
 
         if "clean" in completed:
             existing = pd.read_csv(frame_csv_path, low_memory=False)
-            clean_rows = existing[existing["transformation"].astype(str) == "clean"]
+            clean_rows = existing[
+                existing["transformation"].astype(str) == "clean"
+            ]
             for _, r in clean_rows.iterrows():
                 key = (
                     str(r["category"]),
@@ -374,7 +339,9 @@ class ExplainabilityOrchestrator:
             del existing, clean_rows
             gc.collect()
 
-        with open(frame_csv_path, "a", newline="", encoding="utf-8") as fh:
+        with open(
+            frame_csv_path, "a", newline="", encoding="utf-8"
+        ) as fh:
             writer = csv.DictWriter(fh, fieldnames=fields)
             if write_header:
                 writer.writeheader()
@@ -466,7 +433,9 @@ class ExplainabilityOrchestrator:
             "total_category_video_units": int(
                 video_df[["category", "video_id"]].drop_duplicates().shape[0]
             ),
-            "conditions_evaluated": [condition_tag(c) for c in self.conditions],
+            "conditions_evaluated": [
+                condition_tag(c) for c in self.conditions
+            ],
             "checkpoint_path": self.run_info["checkpoint_path"],
             "target_layers": [str(x) for x in self.generator.target_layers],
             "explanation_stability_threshold": EXPLANATION_STABILITY_THRESHOLD,
@@ -481,7 +450,6 @@ class ExplainabilityOrchestrator:
                 generate_global_heatmaps,
                 generate_representative_cases,
             )
-
             figures_dir = self.output_dir / "figures"
             generate_global_heatmaps(
                 frame_df,
@@ -496,8 +464,27 @@ class ExplainabilityOrchestrator:
         except Exception as exc:
             logging.warning("Visual generation failed: %s", exc)
 
-        self.mask_loader.close()
         return summary
+
+    def close(self) -> None:
+        """Release model, Grad-CAM hooks, and other model-level resources."""
+        try:
+            self.mask_loader.close()
+        except Exception:
+            pass
+
+        generator = getattr(self, "generator", None)
+        if generator is not None:
+            try:
+                generator.close()
+            except Exception as exc:
+                logging.warning("Grad-CAM/model cleanup failed: %s", exc)
+            finally:
+                self.generator = None
+
+        if self.device.type == "cuda" and torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        gc.collect()
 
     def _process_frame(
         self,
@@ -519,7 +506,9 @@ class ExplainabilityOrchestrator:
         image_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
         orig_h, orig_w = image_rgb.shape[:2]
 
-        transformed_rgb = apply_transformation_by_condition(image_rgb, cond_tuple)
+        transformed_rgb = apply_transformation_by_condition(
+            image_rgb, cond_tuple
+        )
         prob_fake, pred_fake = self.generator.predict(transformed_rgb)
 
         record: Dict[str, Any] = {
@@ -571,7 +560,9 @@ class ExplainabilityOrchestrator:
                 target_shape=(eval_h, eval_w),
             )
             if gt_mask is not None:
-                record.update(evaluate_frame_localization(cam_map, gt_mask))
+                record.update(
+                    evaluate_frame_localization(cam_map, gt_mask)
+                )
 
             salient_mask = get_salient_mask(
                 cam_map,
@@ -595,7 +586,9 @@ class ExplainabilityOrchestrator:
                 )
                 masked_prob, _ = self.generator.predict(masked)
                 record[f"prob_fake_{method}"] = masked_prob
-                record[f"faithfulness_{method}"] = float(prob_fake) - float(masked_prob)
+                record[f"faithfulness_{method}"] = (
+                    float(prob_fake) - float(masked_prob)
+                )
                 del masked
 
             record["faithfulness"] = record.get(
@@ -617,14 +610,18 @@ class ExplainabilityOrchestrator:
                             (eval_w, eval_h),
                             interpolation=cv2.INTER_LINEAR,
                         )
-                    record.update(evaluate_frame_stability(clean_cam, cam_map))
+                    record.update(
+                        evaluate_frame_stability(clean_cam, cam_map)
+                    )
                     del clean_cam
 
         if clean_ref is not None:
             clean_pred = int(clean_ref["pred_fake"])
             record["clean_prob_fake"] = float(clean_ref["prob_fake"])
             record["clean_pred_fake"] = clean_pred
-            record["prediction_preserved"] = int(clean_pred == int(pred_fake))
+            record["prediction_preserved"] = int(
+                clean_pred == int(pred_fake)
+            )
 
             if gt_label == 1:
                 if clean_pred == 1 and pred_fake == 1:
@@ -635,6 +632,12 @@ class ExplainabilityOrchestrator:
                     record["prediction_state"] = "Incorrect->Correct"
                 else:
                     record["prediction_state"] = "Incorrect->Incorrect"
+
+        # Release frame-sized CPU arrays as soon as their final use is complete.
+        # Periodic gc.collect() remains as a safety net at condition/model boundaries.
+        del img_bgr, image_rgb, transformed_rgb
+        if gt_label == 1:
+            del eval_img, cam_map, gt_mask, salient_mask, mask_orig
 
         return record
 
@@ -680,7 +683,11 @@ class ExplainabilityOrchestrator:
             "prediction_preserved",
         ]
 
-        agg = {c: "mean" for c in metric_cols if c in frame_df.columns}
+        agg = {
+            c: "mean"
+            for c in metric_cols
+            if c in frame_df.columns
+        }
         agg["original_frame_number"] = "count"
 
         video_df = (
@@ -728,20 +735,29 @@ class ExplainabilityOrchestrator:
             "explanation_IoU@30",
             "prediction_preserved",
         ]
-        present = [c for c in numeric_candidates if c in fake_video_df.columns]
-        return fake_video_df.groupby(
-            ["model", "seed", "video_id", "transformation"],
-            as_index=False,
-        )[present].mean()
+        present = [
+            c for c in numeric_candidates if c in fake_video_df.columns
+        ]
+        return (
+            fake_video_df.groupby(
+                ["model", "seed", "video_id", "transformation"],
+                as_index=False,
+            )[present]
+            .mean()
+        )
 
     def _paired_source_rows(
         self,
         source_df: pd.DataFrame,
         condition: str,
     ):
-        clean = source_df[source_df["transformation"] == "clean"].set_index("video_id")
-        transformed = source_df[source_df["transformation"] == condition].set_index(
-            "video_id"
+        clean = (
+            source_df[source_df["transformation"] == "clean"]
+            .set_index("video_id")
+        )
+        transformed = (
+            source_df[source_df["transformation"] == condition]
+            .set_index("video_id")
         )
         common = clean.index.intersection(transformed.index)
         return clean.loc[common], transformed.loc[common]
@@ -755,10 +771,15 @@ class ExplainabilityOrchestrator:
         fake_video = video_df[video_df["ground_truth"] == 1].copy()
         source_df = self._source_video_level(fake_video)
 
-        conditions = [c for c in source_df["transformation"].unique() if c != "clean"]
+        conditions = [
+            c for c in source_df["transformation"].unique()
+            if c != "clean"
+        ]
 
         for cond in conditions:
-            clean, transformed = self._paired_source_rows(source_df, cond)
+            clean, transformed = self._paired_source_rows(
+                source_df, cond
+            )
             n = len(clean)
             if n == 0:
                 continue
@@ -776,16 +797,14 @@ class ExplainabilityOrchestrator:
                     clean[metric].to_numpy(dtype=float),
                     transformed[metric].to_numpy(dtype=float),
                 )
-                result.update(
-                    {
-                        "model": self.model_name,
-                        "seed": self.seed,
-                        "transformation": cond,
-                        "metric": metric,
-                        "test_family": "family_1_localization",
-                        "inference_unit": "source_video",
-                    }
-                )
+                result.update({
+                    "model": self.model_name,
+                    "seed": self.seed,
+                    "transformation": cond,
+                    "metric": metric,
+                    "test_family": "family_1_localization",
+                    "inference_unit": "source_video",
+                })
                 rows.append(result)
 
             # Family 2: faithfulness
@@ -800,16 +819,14 @@ class ExplainabilityOrchestrator:
                     clean[method].to_numpy(dtype=float),
                     transformed[method].to_numpy(dtype=float),
                 )
-                result.update(
-                    {
-                        "model": self.model_name,
-                        "seed": self.seed,
-                        "transformation": cond,
-                        "metric": method,
-                        "test_family": "family_2_faithfulness",
-                        "inference_unit": "source_video",
-                    }
-                )
+                result.update({
+                    "model": self.model_name,
+                    "seed": self.seed,
+                    "transformation": cond,
+                    "metric": method,
+                    "test_family": "family_2_faithfulness",
+                    "inference_unit": "source_video",
+                })
                 rows.append(result)
 
             # Family 3: explanation stability
@@ -820,16 +837,14 @@ class ExplainabilityOrchestrator:
                     clean[metric].to_numpy(dtype=float),
                     transformed[metric].to_numpy(dtype=float),
                 )
-                result.update(
-                    {
-                        "model": self.model_name,
-                        "seed": self.seed,
-                        "transformation": cond,
-                        "metric": metric,
-                        "test_family": "family_3_stability",
-                        "inference_unit": "source_video",
-                    }
-                )
+                result.update({
+                    "model": self.model_name,
+                    "seed": self.seed,
+                    "transformation": cond,
+                    "metric": metric,
+                    "test_family": "family_3_stability",
+                    "inference_unit": "source_video",
+                })
                 rows.append(result)
 
             # Family 4a: clean localization versus clean faithfulness.
@@ -854,30 +869,28 @@ class ExplainabilityOrchestrator:
                     else:
                         rho, p = spearmanr(x[valid], y[valid])
                         status = "tested"
-                    rows.append(
-                        {
-                            "model": self.model_name,
-                            "seed": self.seed,
-                            "transformation": cond,
-                            "metric": f"{loc_name}_vs_{faith_name}",
-                            "test_family": "family_4a_loc_faith",
-                            "inference_unit": "source_video",
-                            "n_valid": int(valid.sum()),
-                            "rho": float(rho) if np.isfinite(rho) else np.nan,
-                            "raw_p": float(p) if np.isfinite(p) else np.nan,
-                            "adjusted_p": np.nan,
-                            "r_rb": np.nan,
-                            "ci_lower": np.nan,
-                            "ci_upper": np.nan,
-                            "test_status": status,
-                        }
-                    )
+                    rows.append({
+                        "model": self.model_name,
+                        "seed": self.seed,
+                        "transformation": cond,
+                        "metric": f"{loc_name}_vs_{faith_name}",
+                        "test_family": "family_4a_loc_faith",
+                        "inference_unit": "source_video",
+                        "n_valid": int(valid.sum()),
+                        "rho": float(rho) if np.isfinite(rho) else np.nan,
+                        "raw_p": float(p) if np.isfinite(p) else np.nan,
+                        "adjusted_p": np.nan,
+                        "r_rb": np.nan,
+                        "ci_lower": np.nan,
+                        "ci_upper": np.nan,
+                        "test_status": status,
+                    })
 
             # Family 4b: confidence shift versus explanation degradation.
             # ΔP_fake is a per-video confidence shift. It is not F1 loss.
-            d_prob = (clean["prob_fake"] - transformed["prob_fake"]).to_numpy(
-                dtype=float
-            )
+            d_prob = (
+                clean["prob_fake"] - transformed["prob_fake"]
+            ).to_numpy(dtype=float)
 
             for exp_metric, exp_name in [
                 ("SO", "DSO"),
@@ -887,9 +900,9 @@ class ExplainabilityOrchestrator:
                 if exp_metric not in clean or exp_metric not in transformed:
                     continue
 
-                d_exp = (clean[exp_metric] - transformed[exp_metric]).to_numpy(
-                    dtype=float
-                )
+                d_exp = (
+                    clean[exp_metric] - transformed[exp_metric]
+                ).to_numpy(dtype=float)
                 valid = np.isfinite(d_prob) & np.isfinite(d_exp)
 
                 if valid.sum() < MIN_SAMPLE_SPEARMAN:
@@ -902,24 +915,22 @@ class ExplainabilityOrchestrator:
                     )
                     status = "tested"
 
-                rows.append(
-                    {
-                        "model": self.model_name,
-                        "seed": self.seed,
-                        "transformation": cond,
-                        "metric": f"Dprob_vs_{exp_name}",
-                        "test_family": "family_4b_det_exp_deg",
-                        "inference_unit": "source_video",
-                        "n_valid": int(valid.sum()),
-                        "rho": float(rho) if np.isfinite(rho) else np.nan,
-                        "raw_p": float(p) if np.isfinite(p) else np.nan,
-                        "adjusted_p": np.nan,
-                        "r_rb": np.nan,
-                        "ci_lower": np.nan,
-                        "ci_upper": np.nan,
-                        "test_status": status,
-                    }
-                )
+                rows.append({
+                    "model": self.model_name,
+                    "seed": self.seed,
+                    "transformation": cond,
+                    "metric": f"Dprob_vs_{exp_name}",
+                    "test_family": "family_4b_det_exp_deg",
+                    "inference_unit": "source_video",
+                    "n_valid": int(valid.sum()),
+                    "rho": float(rho) if np.isfinite(rho) else np.nan,
+                    "raw_p": float(p) if np.isfinite(p) else np.nan,
+                    "adjusted_p": np.nan,
+                    "r_rb": np.nan,
+                    "ci_lower": np.nan,
+                    "ci_upper": np.nan,
+                    "test_status": status,
+                })
 
         stats_df = pd.DataFrame(rows)
         if not stats_df.empty:
@@ -928,7 +939,9 @@ class ExplainabilityOrchestrator:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Approach 3 explainability evaluation")
+    parser = argparse.ArgumentParser(
+        description="Approach 3 explainability evaluation"
+    )
     parser.add_argument(
         "--model",
         choices=EXPLAINABILITY_MODELS,
@@ -953,7 +966,9 @@ def main():
 
     models = EXPLAINABILITY_MODELS if args.check_all else [args.model]
     if args.check_all and args.seed is not None:
-        raise ValueError("--seed cannot be combined with --check-all.")
+        raise ValueError(
+            "--seed cannot be combined with --check-all."
+        )
 
     for model in models:
         logging.info("Processing %s.", model)
@@ -963,7 +978,10 @@ def main():
             device=device,
             pilot_mode=args.pilot,
         )
-        orchestrator.run_evaluation()
+        try:
+            orchestrator.run_evaluation()
+        finally:
+            orchestrator.close()
 
     logging.info("Approach 3 evaluation completed.")
 

@@ -2,7 +2,7 @@
   "model": "xception",
   "seed": 2024,
   "pilot_mode": false,
-  "total_frames_evaluated": 83952,
+  "total_frames_evaluated": 81952,
   "total_videos": 24,
   "conditions_evaluated": [
     "clean",
@@ -23,5 +23,5 @@
   "target_layers": [
     "Conv2d(1536, 2048, kernel_size=(1, 1), stride=(1, 1), bias=False)"
   ],
-  "timestamp": "2026-09-21 22:30:55"
+  "timestamp": "2026-09-22 08:17:05"
 }

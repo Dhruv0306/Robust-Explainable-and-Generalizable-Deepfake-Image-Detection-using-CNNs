@@ -23,5 +23,5 @@
   "target_layers": [
     "Bottleneck(\n  (conv1): Conv2d(2048, 512, kernel_size=(1, 1), stride=(1, 1), bias=False)\n  (bn1): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, bias=True, track_running_stats=True)\n  (act1): ReLU(inplace=True)\n  (conv2): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)\n  (bn2): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, bias=True, track_running_stats=True)\n  (drop_block): Identity()\n  (act2): ReLU(inplace=True)\n  (aa): Identity()\n  (conv3): Conv2d(512, 2048, kernel_size=(1, 1), stride=(1, 1), bias=False)\n  (bn3): BatchNorm2d(2048, eps=1e-05, momentum=0.1, affine=True, bias=True, track_running_stats=True)\n  (act3): ReLU(inplace=True)\n)"
   ],
-  "timestamp": "2026-09-22 07:35:25"
+  "timestamp": "2026-09-22 08:17:13"
 }

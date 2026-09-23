@@ -1,0 +1,41 @@
+{
+  "model": "xception",
+  "seed": 2024,
+  "pilot_mode": false,
+  "sample_identity": [
+    "category",
+    "video_id",
+    "original_frame_number"
+  ],
+  "evaluation_identity": [
+    "category",
+    "video_id",
+    "original_frame_number",
+    "transformation"
+  ],
+  "total_frame_samples": 6304,
+  "total_frame_condition_evaluations": 81952,
+  "total_category_video_units": 60,
+  "conditions_evaluated": [
+    "clean",
+    "jpeg_sev1",
+    "jpeg_sev2",
+    "jpeg_sev3",
+    "resize_sev1",
+    "resize_sev2",
+    "resize_sev3",
+    "darkening_sev1",
+    "darkening_sev2",
+    "darkening_sev3",
+    "brightening_sev1",
+    "brightening_sev2",
+    "brightening_sev3"
+  ],
+  "checkpoint_path": "E:\\ADM_Project\\Robust-Explainable-and-Generalizable-Deepfake-Image-Detection-using-CNNs\\data\\checkpoints\\xception_LAPTOP-KTKP3V55_2026-09-09_16-00-42\\best_checkpoint.pth",
+  "target_layers": [
+    "Conv2d(1536, 2048, kernel_size=(1, 1), stride=(1, 1), bias=False)"
+  ],
+  "explanation_stability_threshold": 0.8,
+  "statistical_inference_unit": "source video ID after averaging across manipulation categories",
+  "timestamp": "2026-09-22 23:35:03"
+}

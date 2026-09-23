@@ -207,6 +207,7 @@ data/pr-body/*
 !data/pr-body/approach-1_PR.md
 !data/pr-body/approach-2_PR.md
 !data/pr-body/approach-2-novelty_PR.md
+!data/pr-body/approach-3_PR.md
 
 # Keep data directory structure and documentation
 !data/raw/.gitkeep

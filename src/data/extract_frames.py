@@ -1,6 +1,7 @@
 """
 Extract frames from videos: every 4th frame at 30 FPS assumption.
 """
+
 from pathlib import Path
 import logging
 import cv2
@@ -8,14 +9,13 @@ import json
 from typing import Dict, List
 from tqdm import tqdm
 import sys
+
 sys.path.append(str(Path(__file__).parent.parent))
 from config import *
 
 
 def extract_frames_from_video(
-    video_path: Path,
-    output_dir: Path,
-    interval: int = FRAME_SAMPLING_INTERVAL
+    video_path: Path, output_dir: Path, interval: int = FRAME_SAMPLING_INTERVAL
 ) -> List[Dict]:
     """
     Extract every Nth frame from video.
@@ -44,11 +44,13 @@ def extract_frames_from_video(
             cv2.imwrite(str(frame_path), frame)
 
             # Metadata
-            frame_metadata.append({
-                "frame_path": str(frame_path),
-                "original_frame_number": frame_idx,
-                "timestamp": frame_idx / FPS_ASSUMPTION,
-            })
+            frame_metadata.append(
+                {
+                    "frame_path": str(frame_path),
+                    "original_frame_number": frame_idx,
+                    "timestamp": frame_idx / FPS_ASSUMPTION,
+                }
+            )
             saved_count += 1
 
         frame_idx += 1
@@ -57,7 +59,9 @@ def extract_frames_from_video(
     return frame_metadata
 
 
-def extract_all_frames(video_paths: Dict[str, List[Path]], splits: Dict[str, List[str]]) -> Dict:
+def extract_all_frames(
+    video_paths: Dict[str, List[Path]], splits: Dict[str, List[str]]
+) -> Dict:
     """
     Extract frames from all videos, organize by split and category.
     Returns metadata dict.
@@ -84,22 +88,28 @@ def extract_all_frames(video_paths: Dict[str, List[Path]], splits: Dict[str, Lis
                 logging.warning(f"Video {video_id} not in any split, skipping")
                 continue
 
-            # Output directory: frames/<split>/<label>/<video_id>/
-            output_dir = FRAMES_ROOT / split / label / video_path.stem
+            # Keep each manipulation category's frames in a separate directory.
+            output_dir = FRAMES_ROOT / split / label / category / video_path.stem
 
             # Extract frames
             frame_metadata = extract_frames_from_video(video_path, output_dir)
 
             # Add video-level metadata
             for fm in frame_metadata:
-                fm.update({
-                    "video_id": video_path.stem,
-                    "target_id": video_id,
-                    "source_id": video_path.stem.split("_")[1] if "_" in video_path.stem else None,
-                    "category": category,
-                    "label": label,
-                    "split": split,
-                })
+                fm.update(
+                    {
+                        "video_id": video_path.stem,
+                        "target_id": video_id,
+                        "source_id": (
+                            video_path.stem.split("_")[1]
+                            if "_" in video_path.stem
+                            else None
+                        ),
+                        "category": category,
+                        "label": label,
+                        "split": split,
+                    }
+                )
 
             all_metadata.extend(frame_metadata)
 

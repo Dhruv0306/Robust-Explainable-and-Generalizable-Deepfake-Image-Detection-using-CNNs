@@ -1,6 +1,7 @@
 """
 Face detection and cropping using MTCNN (facenet-pytorch) with IoU-based tracking.
 """
+
 from pathlib import Path
 import logging
 import cv2
@@ -9,6 +10,7 @@ import numpy as np
 from typing import Dict, List, Optional, Tuple
 from tqdm import tqdm
 import sys
+
 sys.path.append(str(Path(__file__).parent.parent))
 from config import *
 
@@ -16,7 +18,9 @@ try:
     from facenet_pytorch import MTCNN
     import torch
 except ImportError:
-    logging.warning("facenet-pytorch not installed. Install with: pip install facenet-pytorch")
+    logging.warning(
+        "facenet-pytorch not installed. Install with: pip install facenet-pytorch"
+    )
     MTCNN = None
     torch = None
 
@@ -39,7 +43,9 @@ def compute_iou(box1: List[float], box2: List[float]) -> float:
     return inter_area / union_area if union_area > 0 else 0.0
 
 
-def expand_bbox(bbox: List[float], margin: float, img_shape: Tuple[int, int]) -> Optional[List[int]]:
+def expand_bbox(
+    bbox: List[float], margin: float, img_shape: Tuple[int, int]
+) -> Optional[List[int]]:
     """
     Expand bbox by margin percentage, clip to image bounds.
     Returns None if invalid.
@@ -73,28 +79,30 @@ def expand_bbox(bbox: List[float], margin: float, img_shape: Tuple[int, int]) ->
 def _get_mtcnn_device() -> torch.device:
     """Pick a device MTCNN can actually run on (sm_120 GPUs report cuda but fail)."""
     if not torch.cuda.is_available():
-        return torch.device('cpu')
+        return torch.device("cpu")
     try:
         # Smoke-test: run a tiny tensor op on CUDA to verify kernels work
-        t = torch.zeros(1, device='cuda')
+        t = torch.zeros(1, device="cuda")
         _ = t + 1
-        return torch.device('cuda')
+        return torch.device("cuda")
     except RuntimeError:
-        logging.warning("CUDA available but kernels unsupported (sm_120?), falling back to CPU for face detection")
-        return torch.device('cpu')
+        logging.warning(
+            "CUDA available but kernels unsupported (sm_120?), falling back to CPU for face detection"
+        )
+        return torch.device("cpu")
 
 
 # ponytail: singleton — one MTCNN per process, not one per video
 _mtcnn_cache: dict = {}
 
 
-def _get_mtcnn() -> 'MTCNN':
+def _get_mtcnn() -> "MTCNN":
     """Return a cached MTCNN instance."""
-    if 'instance' not in _mtcnn_cache:
+    if "instance" not in _mtcnn_cache:
         device = _get_mtcnn_device()
         logging.info(f"Initializing MTCNN on {device}")
-        _mtcnn_cache['instance'] = MTCNN(keep_all=True, device=device)
-    return _mtcnn_cache['instance']
+        _mtcnn_cache["instance"] = MTCNN(keep_all=True, device=device)
+    return _mtcnn_cache["instance"]
 
 
 def detect_and_crop_faces(frame_metadata: List[Dict]) -> List[Dict]:
@@ -181,24 +189,26 @@ def process_all_videos(frame_extraction_metadata: List[Dict]) -> List[Dict]:
     """
     logging.info("Detecting and cropping faces...")
 
-    # Group by video_id
+    # Group each category's frames independently, even when video IDs match.
     video_groups = {}
     for fm in frame_extraction_metadata:
-        vid = fm["video_id"]
-        if vid not in video_groups:
-            video_groups[vid] = []
-        video_groups[vid].append(fm)
+        key = (fm["category"], fm["video_id"])
+        video_groups.setdefault(key, []).append(fm)
 
     all_processed = []
     skipped_videos = []
 
-    for video_id, frames in tqdm(video_groups.items(), desc="Processing videos"):
+    for (category, video_id), frames in tqdm(
+        video_groups.items(), desc="Processing videos"
+    ):
         processed = detect_and_crop_faces(frames)
 
         if len(processed) < MIN_USABLE_FRAMES_PER_VIDEO:
-            logging.warning(f"Video {video_id}: only {len(processed)} usable frames, skipping")
-            skipped_videos.append(video_id)
-            # Delete extracted frames for this video
+            logging.warning(
+                f"{category}/{video_id}: only {len(processed)} usable frames, skipping"
+            )
+            skipped_videos.append((category, video_id))
+
             for fm in frames:
                 fp = Path(fm["frame_path"])
                 if fp.exists():
@@ -207,7 +217,9 @@ def process_all_videos(frame_extraction_metadata: List[Dict]) -> List[Dict]:
 
         all_processed.extend(processed)
 
-    logging.info(f"Processed {len(all_processed)} frames from {len(video_groups) - len(skipped_videos)} videos")
+    logging.info(
+        f"Processed {len(all_processed)} frames from {len(video_groups) - len(skipped_videos)} videos"
+    )
     logging.info(f"Skipped {len(skipped_videos)} videos")
 
     return all_processed

@@ -39,7 +39,7 @@ logger = logging.getLogger("approach3.report")
 
 def load_frame_dataframe(model_name: str, seed: int, pilot_mode: bool = False) -> pd.DataFrame:
     """Load the frame-level results CSV for a given model/seed."""
-    base = Path("data/output/explainability") / model_name / f"seed_{seed}"
+    base = Path("data/output/explainability_corrected_v1") / model_name / f"seed_{seed}"
     csv_path = base / "frame_level_results.csv"
     if not csv_path.exists():
         raise FileNotFoundError(f"Frame CSV not found: {csv_path}")
@@ -52,7 +52,7 @@ def load_frame_dataframe(model_name: str, seed: int, pilot_mode: bool = False) -
 
 def load_video_dataframe(model_name: str, seed: int, pilot_mode: bool = False) -> pd.DataFrame:
     """Load the video-level results CSV."""
-    base = Path("data/output/explainability") / model_name / f"seed_{seed}"
+    base = Path("data/output/explainability_corrected_v1") / model_name / f"seed_{seed}"
     csv_path = base / "video_level_results.csv"
     if not csv_path.exists():
         raise FileNotFoundError(f"Video CSV not found: {csv_path}")
@@ -61,7 +61,7 @@ def load_video_dataframe(model_name: str, seed: int, pilot_mode: bool = False) -
 
 def load_statistics_dataframe(model_name: str, seed: int) -> pd.DataFrame:
     """Load the statistical test results. Returns empty DataFrame if file is empty."""
-    base = Path("data/output/explainability") / model_name / f"seed_{seed}"
+    base = Path("data/output/explainability_corrected_v1") / model_name / f"seed_{seed}"
     csv_path = base / "statistics_results.csv"
     if not csv_path.exists():
         return pd.DataFrame()
@@ -263,7 +263,7 @@ def generate_all_figures(model_name: str, seed: int, pilot_mode: bool = False) -
 
     Returns dict of output file paths.
     """
-    base = Path("data/output/explainability") / model_name / f"seed_{seed}"
+    base = Path("data/output/explainability_corrected_v1") / model_name / f"seed_{seed}"
     cache_dir = base / "cache" / "gradcam"
     figs_dir = base / "figures"
     figs_dir.mkdir(parents=True, exist_ok=True)

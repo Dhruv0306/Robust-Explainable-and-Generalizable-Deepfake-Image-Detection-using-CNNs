@@ -1,0 +1,109 @@
+{
+  "split": "test",
+  "frame_metrics": {
+    "accuracy": 0.5560936238902341,
+    "precision": 0.5345622119815668,
+    "recall": 0.20530973451327433,
+    "f1": 0.2966751918158568,
+    "roc_auc": 0.5974908747144244,
+    "confusion_matrix": [
+      [
+        1146,
+        202
+      ],
+      [
+        898,
+        232
+      ]
+    ]
+  },
+  "video_metrics": {
+    "mean": {
+      "accuracy": 0.5,
+      "precision": 0.5,
+      "recall": 0.16666666666666666,
+      "f1": 0.25,
+      "roc_auc": 0.5347222222222222,
+      "confusion_matrix": [
+        [
+          10,
+          2
+        ],
+        [
+          10,
+          2
+        ]
+      ]
+    },
+    "median": {
+      "accuracy": 0.5,
+      "precision": 0.5,
+      "recall": 0.16666666666666666,
+      "f1": 0.25,
+      "roc_auc": 0.5729166666666667,
+      "confusion_matrix": [
+        [
+          10,
+          2
+        ],
+        [
+          10,
+          2
+        ]
+      ]
+    },
+    "mode": {
+      "accuracy": 0.5,
+      "precision": 0.5,
+      "recall": 0.16666666666666666,
+      "f1": 0.25,
+      "roc_auc": 0.5,
+      "confusion_matrix": [
+        [
+          10,
+          2
+        ],
+        [
+          10,
+          2
+        ]
+      ]
+    }
+  },
+  "per_category_metrics": {
+    "Original": {
+      "accuracy": 0.8333333333333334,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "roc_auc": NaN,
+      "confusion_matrix": [
+        [
+          10,
+          2
+        ],
+        [
+          0,
+          0
+        ]
+      ]
+    },
+    "NeuralTextures": {
+      "accuracy": 0.16666666666666666,
+      "precision": 1.0,
+      "recall": 0.16666666666666666,
+      "f1": 0.2857142857142857,
+      "roc_auc": NaN,
+      "confusion_matrix": [
+        [
+          0,
+          0
+        ],
+        [
+          10,
+          2
+        ]
+      ]
+    }
+  }
+}

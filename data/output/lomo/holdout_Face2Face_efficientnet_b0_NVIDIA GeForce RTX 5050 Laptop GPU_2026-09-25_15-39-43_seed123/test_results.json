@@ -1,0 +1,109 @@
+{
+  "split": "test",
+  "frame_metrics": {
+    "accuracy": 0.5326409495548962,
+    "precision": 0.6571428571428571,
+    "recall": 0.13649851632047477,
+    "f1": 0.22604422604422605,
+    "roc_auc": 0.6909541226038796,
+    "confusion_matrix": [
+      [
+        1252,
+        96
+      ],
+      [
+        1164,
+        184
+      ]
+    ]
+  },
+  "video_metrics": {
+    "mean": {
+      "accuracy": 0.5833333333333334,
+      "precision": 1.0,
+      "recall": 0.16666666666666666,
+      "f1": 0.2857142857142857,
+      "roc_auc": 0.6736111111111112,
+      "confusion_matrix": [
+        [
+          12,
+          0
+        ],
+        [
+          10,
+          2
+        ]
+      ]
+    },
+    "median": {
+      "accuracy": 0.5833333333333334,
+      "precision": 1.0,
+      "recall": 0.16666666666666666,
+      "f1": 0.2857142857142857,
+      "roc_auc": 0.7291666666666667,
+      "confusion_matrix": [
+        [
+          12,
+          0
+        ],
+        [
+          10,
+          2
+        ]
+      ]
+    },
+    "mode": {
+      "accuracy": 0.5833333333333334,
+      "precision": 1.0,
+      "recall": 0.16666666666666666,
+      "f1": 0.2857142857142857,
+      "roc_auc": 0.5833333333333334,
+      "confusion_matrix": [
+        [
+          12,
+          0
+        ],
+        [
+          10,
+          2
+        ]
+      ]
+    }
+  },
+  "per_category_metrics": {
+    "Original": {
+      "accuracy": 1.0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "roc_auc": NaN,
+      "confusion_matrix": [
+        [
+          12,
+          0
+        ],
+        [
+          0,
+          0
+        ]
+      ]
+    },
+    "Face2Face": {
+      "accuracy": 0.16666666666666666,
+      "precision": 1.0,
+      "recall": 0.16666666666666666,
+      "f1": 0.2857142857142857,
+      "roc_auc": NaN,
+      "confusion_matrix": [
+        [
+          0,
+          0
+        ],
+        [
+          10,
+          2
+        ]
+      ]
+    }
+  }
+}

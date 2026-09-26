@@ -1,0 +1,5 @@
+condition,category,n_frames,n_videos
+seen,Deepfakes,12,12
+seen,Face2Face,12,12
+seen,FaceSwap,12,12
+unseen,NeuralTextures,12,12

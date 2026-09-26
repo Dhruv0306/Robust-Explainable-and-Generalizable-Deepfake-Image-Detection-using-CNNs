@@ -1,4 +1,6 @@
-## Approach 4 - Cross-manipulation generalizability
+# Generalizability of CNN-Based Deepfake Image Detection
+
+## Approach 4: Cross-manipulation and cross-dataset generalizability
 
 ### Full-versus-LOO evaluation
 
@@ -40,3 +42,57 @@ The ROC-AUC differences followed a similar pattern. The smallest mean ROC-AUC re
 Seed-level variation differed across combinations. The standard deviation of the paired F1 differences was relatively high for Face2Face with EfficientNet-B0 (0.240), Deepfakes with ResNet50 (0.190), and NeuralTextures with EfficientNet-B0 (0.182). In comparison, the paired F1 difference for Face2Face with ResNet50 had a standard deviation of 0.024. These variations indicate that the mean change alone does not fully describe the results, and the seed-level values should be retained alongside the aggregated statistics.
 
 Overall, the measured results show that performance on the held-out manipulation was lower for the LOO models than for the corresponding full-category baselines. The magnitude of this difference was not uniform across manipulation categories or architectures. Since each holdout-model combination was evaluated with three seeds, these results are reported descriptively; they do not establish statistical significance or identify the mechanism responsible for the observed performance differences.
+
+---
+
+## Cross-dataset testing on Celeb-DF
+
+### Objective and evaluation protocol
+
+This experiment evaluates how the Approach 1 CNN checkpoints trained on FaceForensics++ C23 perform on the separate Celeb-DF dataset. The models are evaluated without target-dataset fine-tuning or threshold selection. This provides a cross-dataset test of the trained detectors, distinct from the full-versus-LOO cross-manipulation experiment above.
+
+The processed Celeb-DF test manifest contains 49,732 frames from 518 videos: 340 manipulated (Fake) and 178 authentic (Real). Nine full-training checkpoints were evaluated: Xception, EfficientNet-B0, and ResNet50, each trained with seeds 42, 123, and 2024. The LOMO/LOO checkpoints were not used for this cross-dataset test.
+
+Frame-level sigmoid probabilities were aggregated by the mean probability per video. The reported video-level metrics use a fixed threshold of 0.5. The evaluation retained the same inference pipeline and preprocessing configuration used for the baseline models.
+
+### Results
+
+**Table Y. Video-level Celeb-DF cross-dataset metrics using mean probability aggregation.** Each row represents one trained checkpoint evaluated on the same test manifest.
+
+| Model | Seed | Accuracy | Precision | Recall | F1-score | ROC-AUC |
+|---|---:|---:|---:|---:|---:|---:|
+| Xception | 42 | 0.7162 | 0.8249 | 0.7206 | 0.7692 | 0.7950 |
+| Xception | 123 | 0.7375 | 0.8054 | 0.7912 | 0.7982 | 0.7880 |
+| Xception | 2024 | 0.7452 | 0.7385 | 0.9471 | 0.8299 | 0.8145 |
+| EfficientNet-B0 | 42 | 0.6892 | 0.7771 | 0.7382 | 0.7572 | 0.7479 |
+| EfficientNet-B0 | 123 | 0.7606 | 0.7673 | 0.9118 | 0.8333 | 0.7613 |
+| EfficientNet-B0 | 2024 | 0.7259 | 0.7605 | 0.8500 | 0.8028 | 0.7545 |
+| ResNet50 | 42 | 0.6197 | 0.8488 | 0.5118 | 0.6385 | 0.7612 |
+| ResNet50 | 123 | 0.7529 | 0.7454 | 0.9471 | 0.8342 | 0.8215 |
+| ResNet50 | 2024 | 0.7394 | 0.7556 | 0.8912 | 0.8178 | 0.7675 |
+
+### Result figures
+
+The following confusion matrices show the video-level mean-aggregation predictions for seed 42, one checkpoint per architecture. They are examples of the run-level outputs; the table above reports all nine runs.
+
+**Figure Y1. Xception, seed 42, Celeb-DF video-level confusion matrix.**
+
+![Xception seed 42 video-level mean aggregation confusion matrix](../output/cross_dataset_celebdf/xception/seed_42/test_confusion_matrix_video_mean.png)
+
+**Figure Y2. EfficientNet-B0, seed 42, Celeb-DF video-level confusion matrix.**
+
+![EfficientNet-B0 seed 42 video-level mean aggregation confusion matrix](../output/cross_dataset_celebdf/efficientnet_b0/seed_42/test_confusion_matrix_video_mean.png)
+
+**Figure Y3. ResNet50, seed 42, Celeb-DF video-level mean aggregation confusion matrix.**
+
+![ResNet50 seed 42 video-level mean aggregation confusion matrix](../output/cross_dataset_celebdf/resnet50/seed_42/test_confusion_matrix_video_mean.png)
+
+### Observations and limitations
+
+Across the nine evaluated checkpoints, video-level accuracy ranged from 0.6197 to 0.7606, F1-score ranged from 0.6385 to 0.8342, and ROC-AUC ranged from 0.7479 to 0.8215. Results varied across seeds within each architecture. For example, ResNet50 accuracy ranged from 0.6197 to 0.7529, while its recall ranged from 0.5118 to 0.9471. Therefore, individual checkpoint results should be read alongside the seed variation rather than treated as a single architecture-level outcome.
+
+These measurements describe performance on the processed Celeb-DF test manifest used in this experiment. They do not establish performance on all Celeb-DF videos or on other unseen datasets. The cross-dataset results also should not be interpreted as a direct controlled comparison with the LOO holdout scores above, because the two experiments use different evaluation populations and test conditions.
+
+### Output artifacts
+
+The per-checkpoint output folders are organized under `data/output/cross_dataset_celebdf/`, with subfolders for each architecture and seed. Each run stores frame predictions, video predictions for mean/median/mode aggregation, metrics in JSON, ROC data, confusion-matrix plots, and an ROC curve plot. The evaluator script is `scripts/evaluate_celebdf_cross_dataset.py`.
